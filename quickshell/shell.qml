@@ -16,7 +16,7 @@ ShellRoot {
         "hover":      { width: 560, height: 30,  radius: 12 },
         "launcher":   { width: 460, height: 420, radius: 12 },
         "theme":      { width: 400, height: 250, radius: 12 },
-        "wallpaper":  { width: 520, height: 320, radius: 12 },
+        "wallpaper":  { width: 760, height: 320, radius: 12 },
         "transition": { width: 420, height: 260, radius: 12 },
         "osd":        { width: 280, height: 40,  radius: 16 },
         "wifi":       { width: 420, height: 420, radius: 12 }, 
