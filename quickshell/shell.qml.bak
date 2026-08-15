@@ -1,0 +1,165 @@
+import Quickshell
+import QtQuick
+import QtQuick.Layouts
+
+ShellRoot {
+    PanelWindow {
+        id: panel
+
+        anchors.top: true
+        
+        implicitWidth: 500
+        implicitHeight: 80
+        
+        exclusiveZone: 30 
+        
+        color: "transparent"
+        
+        property bool expanded: false
+
+        Rectangle {
+            id: notch
+            
+            anchors.top: parent.top
+            anchors.horizontalCenter: parent.horizontalCenter
+            
+            width: panel.expanded ? 400 : 120
+            height: panel.expanded ? 30 : 30
+            
+            color: "#11111b"
+            bottomLeftRadius: 20
+            bottomRightRadius: 20
+
+            Behavior on width {
+                NumberAnimation { 
+                    duration: 250 
+                    easing.type: Easing.OutExpo 
+                }
+            }
+            
+            Behavior on height {
+                NumberAnimation { 
+                    duration: 250 
+                    easing.type: Easing.OutExpo 
+                }
+			}
+
+			RowLayout {
+				anchors.fill: parent
+				anchors.margins: 8
+				spacing: 6
+
+				// Left space - pushes everything to right
+				Item { Layout.fillWidth: true }
+
+				Text {
+					anchors.centerIn: parent
+					text: Qt.formatDateTime(clock.date, "hh:mm AP")
+					color: "white"
+					font.pixelSize: 14
+					font.bold: true
+				}
+
+				Item { Layout.fillWidth: true }
+
+				Row {
+					id: iconsRow
+					spacing: 12
+					visible: panel.expanded
+					opacity: panel.expanded ? 1 : 0
+					Behavior on opacity { NumberAnimation { duration: 250 } }
+
+					Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+
+					// Battery
+				
+
+					Column {
+						spacing: 1
+
+						// 1. Define custom properties to hold the state
+						property int batteryLevel: 100
+						property bool isCharging: false
+
+						// 2. Timer to read the Linux battery files every 5 seconds
+						Timer {
+							interval: 5000 
+							running: true
+							repeat: true
+							triggeredOnStart: true // Fetch immediately on load
+
+							onTriggered: {
+								// Read battery percentage
+								var xhrCap = new XMLHttpRequest();
+								// Note: If this doesn't work, check if your battery is BAT1 instead of BAT0
+								xhrCap.open("GET", "file:///sys/class/power_supply/BAT1/capacity", true);
+								xhrCap.onreadystatechange = function() {
+									if (xhrCap.readyState === XMLHttpRequest.DONE) {
+										var val = parseInt(xhrCap.responseText);
+										if (!isNaN(val)) batteryLevel = val;
+									}
+								}
+								xhrCap.send();
+
+								// Read charging status
+								var xhrStat = new XMLHttpRequest();
+								xhrStat.open("GET", "file:///sys/class/power_supply/BAT1/status", true);
+								xhrStat.onreadystatechange = function() {
+									if (xhrStat.readyState === XMLHttpRequest.DONE) {
+										isCharging = (xhrStat.responseText.trim() === "Charging");
+									}
+								}
+								xhrStat.send();
+							}
+						}
+
+						// 3. UI binding for the Icon
+						Text {
+							text: {
+								if (parent.isCharging) return "⚡"
+								if (parent.batteryLevel > 20) return "🔋"
+								return "🪫"
+							}
+							font.pixelSize: 16
+							color: "white"
+							anchors.horizontalCenter: parent.horizontalCenter
+						}
+
+						// 4. UI binding for the Percentage
+						Text {
+							text: parent.batteryLevel + "%"
+							// Red if under 20% and NOT charging, otherwise gray
+							color: (parent.batteryLevel > 20 || parent.isCharging) ? "#aaa" : "#f44336"
+							font.pixelSize: 9
+							anchors.horizontalCenter: parent.horizontalCenter
+						}
+					}
+				}
+
+
+			}		
+            
+
+			SystemClock {
+				id: clock
+				precision: SystemClock.Minutes
+			}
+
+            MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+
+                onEntered: {
+                    panel.expanded = true
+                }
+
+                onExited: {
+                    panel.expanded = false
+                }
+            }
+        }
+
+	}
+
+	
+}
