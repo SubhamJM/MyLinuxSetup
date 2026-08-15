@@ -4,3 +4,5 @@
 - Super + shift + w = wallpaper transition switcher
 - Super + Space = application launcher
 - Super + Enter = terminal (kitty)
+
+created a branch
