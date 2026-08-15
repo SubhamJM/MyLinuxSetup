@@ -8,8 +8,10 @@ Item {
     id: dash
     Layout.fillWidth: true
     Layout.fillHeight: true
+    implicitWidth: dashRow.implicitWidth + 24
 
     RowLayout {
+        id: dashRow
         anchors.fill: parent
         anchors.leftMargin: 12
         anchors.rightMargin: 12
@@ -53,12 +55,13 @@ Item {
             }
         }
 
-        Item { Layout.fillWidth: true; visible: root.activeMode === "hover" }
+        Item { Layout.fillWidth: true; implicitWidth: 10; visible: root.activeMode === "hover" }
 
         // Date & Time
         Rectangle {
             Layout.alignment: Qt.AlignCenter
             width: timeRow.implicitWidth + 24
+            implicitWidth: width
             height: 26
             radius: 8
             color: timeMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
@@ -94,7 +97,7 @@ Item {
             }
         }
 
-        Item { Layout.fillWidth: true; visible: root.activeMode === "hover" }
+        Item { Layout.fillWidth: true; implicitWidth: 10; visible: root.activeMode === "hover" }
 
         // System Tray & Actions
         Row {

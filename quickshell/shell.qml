@@ -54,7 +54,12 @@ ShellRoot {
         });
     }
 
-    readonly property int targetWidth: modeDimensions[activeMode]?.width ?? modeDimensions["idle"].width
+    readonly property int targetWidth: {
+        if (activeMode === "hover" && typeof dashMod !== "undefined") {
+            return Math.max(modeDimensions["hover"].width, dashMod.implicitWidth);
+        }
+        return modeDimensions[activeMode]?.width ?? modeDimensions["idle"].width;
+    }
     
     readonly property int targetHeight: {
         if (activeMode === "launcher") {
@@ -164,7 +169,7 @@ ShellRoot {
     PanelWindow {
         id: panel
         anchors.top: true
-        implicitWidth: 600
+        implicitWidth: Math.max(600, notch.width + 40)
         implicitHeight: root.targetHeight + 60
         exclusiveZone: 30
         color: "transparent"
