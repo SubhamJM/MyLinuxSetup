@@ -148,7 +148,7 @@ ShellRoot {
         });
     }
 
-    readonly property int targetWidth:  modeDimensions[activeMode]?.width  ?? modeDimensions["idle"].width
+    readonly property int targetWidth: modeDimensions[activeMode]?.width ?? modeDimensions["idle"].width
     
     // Dynamic height calculation engine
     readonly property int targetHeight: {
@@ -156,20 +156,25 @@ ShellRoot {
             var calculatedHeight = 66 + (filteredAppModel.count * 48);
             return Math.min(420, Math.max(100, calculatedHeight));
         }
+        if (activeMode === "bluetooth") {
+            var btCount = root.filteredBluetoothDevices.length;
+            if (btCount === 0) return 180;
+            var totalBtHeight = 66 + (btCount * 51);
+            return Math.min(440, Math.max(160, totalBtHeight));
+        }
         if (activeMode === "wifi") {
             if (root.networkActiveTab === "hotspot") {
-                return 320; // Clean fixed height for Hotspot config view
+                return 320;
             }
             if (!root.wifiEnabled) {
-                return 180; // Disabled state height
+                return 180;
             }
-            // Base chrome: container padding (24) + tab selector (32) + spacing (10) + header row (26) + spacing (8) + margin (6)
             var baseChromeHeight = 106;
             var listItemsHeight = 0;
             var count = wifiModel.count;
             
             if (count === 0) {
-                return 180; // Empty / scanning height
+                return 180;
             }
 
             for (var i = 0; i < count; i++) {
@@ -178,13 +183,17 @@ ShellRoot {
                 if (item.inUse) {
                     cardH = 50;
                 } else if (item.isExpanded) {
-                    cardH = item.showPassword ? 116 : 84;
+                    if (item.showPassword) {
+                        cardH = item.hasError ? 138 : 116;
+                    } else {
+                        cardH = 84;
+                    }
                 }
-                listItemsHeight += (cardH + 6); // card height + list spacing
+                listItemsHeight += (cardH + 6);
             }
 
             var totalWifiHeight = baseChromeHeight + listItemsHeight;
-            return Math.min(440, Math.max(160, totalWifiHeight));
+            return Math.min(460, Math.max(160, totalWifiHeight));
         }
         return modeDimensions[activeMode]?.height ?? modeDimensions["idle"].height;
     }
@@ -350,6 +359,40 @@ ShellRoot {
         }
     }
 
+    // Bluetooth deduplicated filter property
+    readonly property var filteredBluetoothDevices: {
+        if (typeof Bluetooth === "undefined" || !Bluetooth.devices) return [];
+        var rawList = Bluetooth.devices.values;
+        var seenNames = {};
+        var result = [];
+
+        for (var i = 0; i < rawList.length; i++) {
+            var dev = rawList[i];
+            var devName = dev.name ? dev.name.trim() : "";
+            
+            if (devName === "") continue;
+            
+            var isMacFormat = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/.test(devName);
+
+            if (!seenNames[devName]) {
+                seenNames[devName] = true;
+                result.push({
+                    "device": dev,
+                    "name": devName,
+                    "isMac": isMacFormat,
+                    "connected": dev.connected,
+                    "paired": dev.paired
+                });
+            }
+        }
+
+        return result.sort((a, b) => {
+            if (a.connected !== b.connected) return a.connected ? -1 : 1;
+            if (a.paired !== b.paired) return a.paired ? -1 : 1;
+            return a.name.localeCompare(b.name);
+        });
+    }
+
     // =========================================================================
     // BACKGROUND PROCESSES: APPS, THEMES, WALLPAPERS
     // =========================================================================
@@ -476,19 +519,20 @@ for f in sorted(list(set(files))):
     // =========================================================================
     // WI-FI & HOTSPOT STATE ENGINE
     // =========================================================================
-    property string networkActiveTab: "wifi" // "wifi" | "hotspot"
+    property string networkActiveTab: "wifi"
     property bool wifiEnabled: true
     property bool hotspotActive: false
     property string activeWifiSsid: ""
     property bool isWifiScanning: false
     property var savedConnections: ({})
+    property string connectingSsid: ""
 
-    // Configurable Hotspot State
     property string hotspotSsid: "SubhamLaptop"
     property string hotspotPass: "000000001"
     property bool hotspotShowPassword: false
 
     function isAnyWifiExpanded() {
+        if (connectingSsid !== "") return true;
         for (var i = 0; i < wifiModel.count; i++) {
             if (wifiModel.get(i).isExpanded) return true;
         }
@@ -512,18 +556,24 @@ for f in sorted(list(set(files))):
         }
     }
 
+    // Native Escaped Wi-Fi Scanner with Signal Deduplication
     Process {
         id: wifiScanner
-        command: ["sh", "-c", "nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi"]
+        command: [
+            "sh", "-c", 
+            "nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi list --rescan no 2>/dev/null | awk -F':' '{ if ($2 != \"\" && $2 != \"--\") { in_use=($1==\"*\")?1:0; print in_use \"|||\" $2 \"|||\" $3 \"|||\" $4 } }'"
+        ]
         stdout: StdioCollector {
             onStreamFinished: {
                 var stateMap = {};
                 for (var k = 0; k < wifiModel.count; k++) {
-                    var item = wifiModel.get(k);
-                    if (item.isExpanded) {
-                        stateMap[item.ssid] = {
-                            "isExpanded": item.isExpanded,
-                            "showPassword": item.showPassword
+                    var itm = wifiModel.get(k);
+                    if (itm.isExpanded || itm.hasError) {
+                        stateMap[itm.ssid] = {
+                            "isExpanded": itm.isExpanded,
+                            "showPassword": itm.showPassword,
+                            "hasError": itm.hasError,
+                            "errorMsg": itm.errorMsg
                         };
                     }
                 }
@@ -534,32 +584,46 @@ for f in sorted(list(set(files))):
                 var foundActiveSsid = "";
                 
                 for (var i = 0; i < lines.length; i++) {
-                    var parts = lines[i].split(":");
-                    if (parts.length >= 4 && parts[1] !== "") {
-                        var isConnected = parts[0] === "*";
-                        var ssid = parts[1];
-                        if (isConnected) foundActiveSsid = ssid;
+                    var line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    var parts = line.split("|||");
+                    if (parts.length >= 4) {
+                        var isConnected = (parts[0] === "1");
+                        var ssidName = parts[1].replace(/\\:/g, ":").trim();
+                        var sigLevel = parseInt(parts[2]) || 0;
+                        var secProtocol = parts[3].trim();
 
-                        if (!seen[ssid]) {
-                            seen[ssid] = true;
-                            
-                            var prev = stateMap[ssid];
+                        if (ssidName === "" || ssidName === "--") continue;
+                        if (isConnected) foundActiveSsid = ssidName;
+
+                        if (!seen[ssidName] || isConnected || sigLevel > seen[ssidName].signal) {
+                            var prev = stateMap[ssidName];
                             var wasExpanded = prev ? prev.isExpanded : false;
                             var wasShowingPass = prev ? prev.showPassword : false;
-                            var hasSavedProfile = !!root.savedConnections[ssid];
+                            var hadError = prev ? prev.hasError : false;
+                            var prevErrMsg = prev ? prev.errorMsg : "";
+                            var hasSavedProfile = !!root.savedConnections[ssidName];
 
-                            wifiModel.append({
+                            seen[ssidName] = {
                                 "inUse": isConnected,
-                                "ssid": ssid,
-                                "signal": parseInt(parts[2]),
-                                "security": parts[3],
+                                "ssid": ssidName,
+                                "signal": sigLevel,
+                                "security": secProtocol,
                                 "isSaved": hasSavedProfile,
                                 "isExpanded": wasExpanded,
-                                "showPassword": wasShowingPass
-                            });
+                                "showPassword": wasShowingPass,
+                                "hasError": hadError,
+                                "errorMsg": prevErrMsg
+                            };
                         }
                     }
                 }
+
+                for (var s in seen) {
+                    wifiModel.append(seen[s]);
+                }
+
                 root.activeWifiSsid = foundActiveSsid;
                 root.isWifiScanning = false;
             }
@@ -569,7 +633,7 @@ for f in sorted(list(set(files))):
     Process {
         id: wifiRescanTrigger
         running: false
-        command: ["sh", "-c", "nmcli dev wifi rescan"]
+        command: ["sh", "-c", "nmcli dev wifi rescan 2>/dev/null || true"]
         onExited: {
             wifiSavedChecker.running = true;
         }
@@ -580,10 +644,75 @@ for f in sorted(list(set(files))):
         wifiRescanTrigger.running = true;
     }
 
+    // Wi-Fi Connection Manager & Validation Engine
     Process { 
         id: wifiConnector
         running: false
-        onExited: wifiSavedChecker.running = true
+        property string targetSsid: ""
+        property int targetModelIndex: -1
+
+        stdout: StdioCollector {
+            id: connectOutCollector
+        }
+
+        stderr: StdioCollector {
+            id: connectErrCollector
+        }
+
+        onExited: (exitCode) => {
+            var combinedOutput = (connectOutCollector.text + " " + connectErrCollector.text).toLowerCase();
+            var isFail = exitCode !== 0 || combinedOutput.includes("error") || combinedOutput.includes("secrets were required") || combinedOutput.includes("failed");
+
+            if (isFail) {
+                // Remove failed connection profile from NetworkManager to prevent saving bad passwords
+                Quickshell.execDetached(["nmcli", "connection", "delete", "id", targetSsid]);
+
+                for (var i = 0; i < wifiModel.count; i++) {
+                    if (wifiModel.get(i).ssid === targetSsid) {
+                        wifiModel.setProperty(i, "hasError", true);
+                        wifiModel.setProperty(i, "errorMsg", "Incorrect password or network timed out.");
+                        wifiModel.setProperty(i, "isExpanded", true);
+                        wifiModel.setProperty(i, "showPassword", true);
+                        wifiModel.setProperty(i, "isSaved", false);
+                        break;
+                    }
+                }
+            } else {
+                for (var j = 0; j < wifiModel.count; j++) {
+                    if (wifiModel.get(j).ssid === targetSsid) {
+                        wifiModel.setProperty(j, "hasError", false);
+                        wifiModel.setProperty(j, "errorMsg", "");
+                        wifiModel.setProperty(j, "isExpanded", false);
+                        wifiModel.setProperty(j, "showPassword", false);
+                        wifiModel.setProperty(j, "isSaved", true);
+                        break;
+                    }
+                }
+            }
+            root.connectingSsid = "";
+            wifiSavedChecker.running = true;
+        }
+    }
+
+    function initiateConnection(ssid, password, idx) {
+        root.connectingSsid = ssid;
+        wifiModel.setProperty(idx, "hasError", false);
+        wifiModel.setProperty(idx, "errorMsg", "");
+
+        wifiConnector.targetSsid = ssid;
+        wifiConnector.targetModelIndex = idx;
+
+        var cmd = "";
+        var safeSsid = ssid.replace(/'/g, "'\\''");
+        if (password && password.length > 0) {
+            var safePass = password.replace(/'/g, "'\\''");
+            cmd = "nmcli dev wifi connect '" + safeSsid + "' password '" + safePass + "'";
+        } else {
+            cmd = "nmcli connection up id '" + safeSsid + "' 2>/dev/null || nmcli dev wifi connect '" + safeSsid + "'";
+        }
+
+        wifiConnector.command = ["sh", "-c", cmd];
+        wifiConnector.running = true;
     }
 
     Process {
@@ -1471,18 +1600,21 @@ for f in sorted(list(set(files))):
                         }
                     }
                     
-                    // MODULE 6: Bluetooth
+                    // MODULE 6: Bluetooth (Deduplicated & Dynamic Height)
                     ColumnLayout {
-                        spacing: 12
+                        spacing: 10
 
                         RowLayout {
                             Layout.fillWidth: true
+                            spacing: 8
+
                             Text {
                                 text: "Bluetooth Devices"
                                 font.pixelSize: 16
                                 font.bold: true
                                 color: root.themeColors.text_primary ?? "white"
                             }
+
                             Item { Layout.fillWidth: true }
                             
                             Rectangle {
@@ -1509,8 +1641,19 @@ for f in sorted(list(set(files))):
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             clip: true
-                            spacing: 4
-                            model: typeof Bluetooth !== "undefined" && Bluetooth.devices ? Bluetooth.devices.values : []
+                            spacing: 6
+                            model: root.filteredBluetoothDevices
+
+                            Item {
+                                anchors.fill: parent
+                                visible: root.filteredBluetoothDevices.length === 0
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: typeof Bluetooth !== "undefined" && Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.discovering ? "Searching for devices..." : "No devices found"
+                                    color: root.themeColors.text_secondary ?? "#565f89"
+                                    font.pixelSize: 13
+                                }
+                            }
 
                             delegate: Rectangle {
                                 width: ListView.view.width
@@ -1518,11 +1661,11 @@ for f in sorted(list(set(files))):
                                 radius: 8
                                 color: root.themeColors.card_bg ?? "#1f2335"
                                 border.width: 1
-                                border.color: root.themeColors.border ?? "#16161e"
+                                border.color: modelData.connected ? (root.themeColors.accent ?? "#7aa2f7") : (root.themeColors.border ?? "#16161e")
                                 
                                 RowLayout {
                                     anchors.fill: parent
-                                    anchors.margins: 10
+                                    anchors.margins: 8
                                     spacing: 10
                                     
                                     Text {
@@ -1533,21 +1676,23 @@ for f in sorted(list(set(files))):
                                     
                                     Column {
                                         Layout.fillWidth: true
+                                        spacing: 1
+
                                         Text {
-                                            text: modelData.name !== "" ? modelData.name : "Unknown Device"
+                                            text: modelData.name
                                             color: root.themeColors.text_primary ?? "white"
                                             font.pixelSize: 13; font.bold: true
                                             elide: Text.ElideRight; width: parent.width
                                         }
                                         Text {
                                             text: modelData.connected ? "Connected" : (modelData.paired ? "Paired" : "Available")
-                                            color: root.themeColors.text_secondary ?? "#565f89"
+                                            color: modelData.connected ? (root.themeColors.accent ?? "#7aa2f7") : (root.themeColors.text_secondary ?? "#565f89")
                                             font.pixelSize: 11
                                         }
                                     }
 
                                     Rectangle {
-                                        width: 70; height: 26; radius: 6
+                                        width: 76; height: 26; radius: 6
                                         color: modelData.connected ? "#f44336" : (root.themeColors.hover_bg ?? "#24283b")
                                         Text {
                                             anchors.centerIn: parent
@@ -1559,9 +1704,9 @@ for f in sorted(list(set(files))):
                                             anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                                             onClicked: {
                                                 if (modelData.connected) {
-                                                    modelData.disconnect();
+                                                    modelData.device.disconnect();
                                                 } else {
-                                                    modelData.connect();
+                                                    modelData.device.connect();
                                                 }
                                             }
                                         }
@@ -1593,7 +1738,6 @@ for f in sorted(list(set(files))):
                                     anchors.margins: 3
                                     spacing: 4
 
-                                    // Tab 1: Wi-Fi Networks
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
@@ -1622,7 +1766,6 @@ for f in sorted(list(set(files))):
                                         }
                                     }
 
-                                    // Tab 2: Hotspot Setup & Toggle
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
@@ -1661,7 +1804,6 @@ for f in sorted(list(set(files))):
                             visible: root.networkActiveTab === "wifi"
                             spacing: 8
 
-                            // Header sub-bar: Scan & Toggle switch
                             RowLayout {
                                 Layout.fillWidth: true
                                 spacing: 8
@@ -1675,7 +1817,6 @@ for f in sorted(list(set(files))):
 
                                 Item { Layout.fillWidth: true }
 
-                                // Scan Button
                                 Rectangle {
                                     width: 64; height: 26; radius: 6
                                     color: root.isWifiScanning ? (root.themeColors.accent ?? "#7aa2f7") : (root.themeColors.card_bg ?? "#1f2335")
@@ -1697,7 +1838,6 @@ for f in sorted(list(set(files))):
                                     }
                                 }
 
-                                // Radio ON/OFF Toggle
                                 Rectangle {
                                     width: 60; height: 26; radius: 13
                                     color: root.wifiEnabled ? (root.themeColors.accent ?? "#7aa2f7") : (root.themeColors.hover_bg ?? "#24283b")
@@ -1737,7 +1877,6 @@ for f in sorted(list(set(files))):
                                 }
                             }
 
-                            // Wi-Fi ListView
                             ListView {
                                 id: wifiListView
                                 Layout.fillWidth: true
@@ -1760,21 +1899,24 @@ for f in sorted(list(set(files))):
                                 delegate: Rectangle {
                                     id: wifiCard
                                     width: ListView.view.width
-                                    height: inUse ? 50 : (isExpanded ? (showPassword ? 116 : 84) : 48)
+                                    
+                                    // Height adjusts cleanly for error messages
+                                    height: inUse ? 50 : (isExpanded ? (showPassword ? (hasError ? 138 : 116) : 84) : 48)
                                     radius: 8
                                     color: root.themeColors.card_bg ?? "#1f2335"
                                     border.width: 1
-                                    border.color: inUse ? (root.themeColors.accent ?? "#7aa2f7") : (isExpanded ? (root.themeColors.border_hover ?? "#7aa2f7") : (root.themeColors.border ?? "#16161e"))
+                                    border.color: inUse ? (root.themeColors.accent ?? "#7aa2f7") : (hasError ? "#f44336" : (isExpanded ? (root.themeColors.border_hover ?? "#7aa2f7") : (root.themeColors.border ?? "#16161e")))
                                     clip: true
 
                                     Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutExpo } }
+
+                                    property bool isCurrentlyConnecting: (root.connectingSsid === ssid)
 
                                     ColumnLayout {
                                         anchors.fill: parent
                                         anchors.margins: 8
                                         spacing: 6
 
-                                        // Network Header Row
                                         RowLayout {
                                             Layout.fillWidth: true
                                             spacing: 10
@@ -1799,21 +1941,28 @@ for f in sorted(list(set(files))):
                                                         Layout.maximumWidth: wifiCard.width - 150
                                                     }
                                                     Text {
-                                                        visible: !inUse && isSaved
+                                                        visible: !inUse && isSaved && !isCurrentlyConnecting
                                                         text: "󰌾 Saved"
                                                         font.pixelSize: 10
+                                                        color: root.themeColors.accent ?? "#7aa2f7"
+                                                    }
+                                                    Text {
+                                                        visible: isCurrentlyConnecting
+                                                        text: "• Connecting..."
+                                                        font.pixelSize: 11; font.bold: true
                                                         color: root.themeColors.accent ?? "#7aa2f7"
                                                     }
                                                 }
 
                                                 Text {
-                                                    text: (security !== "" && security !== "--" ? "Secured" : "Open") + " • " + signal + "%"
-                                                    color: root.themeColors.text_secondary ?? "#565f89"
+                                                    text: isCurrentlyConnecting 
+                                                        ? "Authenticating credentials..." 
+                                                        : ((security !== "" && security !== "--" ? "Secured" : "Open") + " • " + signal + "%")
+                                                    color: isCurrentlyConnecting ? (root.themeColors.accent ?? "#7aa2f7") : (root.themeColors.text_secondary ?? "#565f89")
                                                     font.pixelSize: 11
                                                 }
                                             }
 
-                                            // Connected: Disconnect Button
                                             Rectangle {
                                                 visible: inUse
                                                 Layout.preferredWidth: 80
@@ -1845,7 +1994,7 @@ for f in sorted(list(set(files))):
                                             }
                                         }
 
-                                        // Action Options Drawer (Connect / Forget / Trust)
+                                        // Connect, Forget, Trust Drawer
                                         RowLayout {
                                             Layout.fillWidth: true
                                             visible: !inUse && isExpanded && !showPassword
@@ -1855,23 +2004,22 @@ for f in sorted(list(set(files))):
                                                 Layout.fillWidth: true
                                                 Layout.preferredHeight: 26
                                                 radius: 6
-                                                color: root.themeColors.accent ?? "#7aa2f7"
+                                                color: isCurrentlyConnecting ? (root.themeColors.hover_bg ?? "#24283b") : (root.themeColors.accent ?? "#7aa2f7")
 
                                                 Text {
                                                     anchors.centerIn: parent
-                                                    text: "Connect"
-                                                    color: root.themeColors.bg ?? "#16161e"
+                                                    text: isCurrentlyConnecting ? "Connecting..." : "Connect"
+                                                    color: isCurrentlyConnecting ? "white" : (root.themeColors.bg ?? "#16161e")
                                                     font.bold: true; font.pixelSize: 11
                                                 }
 
                                                 MouseArea {
                                                     anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                                    enabled: !isCurrentlyConnecting
                                                     onClicked: {
                                                         var isOpen = (security === "" || security === "--");
                                                         if (isSaved || isOpen) {
-                                                            wifiConnector.command = ["sh", "-c", "nmcli connection up id '" + ssid + "' 2>/dev/null || nmcli dev wifi connect '" + ssid + "'"];
-                                                            wifiConnector.running = true;
-                                                            wifiModel.setProperty(index, "isExpanded", false);
+                                                            root.initiateConnection(ssid, "", index);
                                                         } else {
                                                             wifiModel.setProperty(index, "showPassword", true);
                                                             Qt.callLater(() => passField.forceActiveFocus());
@@ -1933,92 +2081,109 @@ for f in sorted(list(set(files))):
                                         }
 
                                         // Password Entry Drawer
-                                        RowLayout {
+                                        ColumnLayout {
                                             Layout.fillWidth: true
                                             visible: !inUse && isExpanded && showPassword
-                                            spacing: 6
+                                            spacing: 4
 
-                                            TextField {
-                                                id: passField
+                                            RowLayout {
                                                 Layout.fillWidth: true
-                                                Layout.preferredHeight: 28
-                                                placeholderText: "Enter Password..."
-                                                placeholderTextColor: root.themeColors.text_secondary ?? "#565f89"
-                                                echoMode: TextInput.Password
-                                                color: root.themeColors.text_primary ?? "white"
-                                                font.pixelSize: 12
-                                                verticalAlignment: TextInput.AlignVCenter
-                                                selectByMouse: true
+                                                spacing: 6
 
-                                                background: Rectangle {
-                                                    color: root.themeColors.bg ?? "#16161e"
+                                                TextField {
+                                                    id: passField
+                                                    Layout.fillWidth: true
+                                                    Layout.preferredHeight: 28
+                                                    placeholderText: "Enter Password..."
+                                                    placeholderTextColor: root.themeColors.text_secondary ?? "#565f89"
+                                                    echoMode: TextInput.Password
+                                                    color: root.themeColors.text_primary ?? "white"
+                                                    font.pixelSize: 12
+                                                    verticalAlignment: TextInput.AlignVCenter
+                                                    selectByMouse: true
+                                                    enabled: !isCurrentlyConnecting
+
+                                                    background: Rectangle {
+                                                        color: root.themeColors.bg ?? "#16161e"
+                                                        radius: 6
+                                                        border.width: 1
+                                                        border.color: hasError ? "#f44336" : (passField.activeFocus ? (root.themeColors.accent ?? "#7aa2f7") : (root.themeColors.border ?? "#16161e"))
+                                                    }
+
+                                                    Keys.onReturnPressed: joinBtn.submitConnection()
+                                                    Keys.onEnterPressed: joinBtn.submitConnection()
+                                                }
+
+                                                Rectangle {
+                                                    id: joinBtn
+                                                    Layout.preferredWidth: isCurrentlyConnecting ? 74 : 46
+                                                    Layout.preferredHeight: 28
                                                     radius: 6
-                                                    border.width: 1
-                                                    border.color: passField.activeFocus ? (root.themeColors.accent ?? "#7aa2f7") : (root.themeColors.border ?? "#16161e")
-                                                }
+                                                    color: isCurrentlyConnecting ? (root.themeColors.hover_bg ?? "#24283b") : (root.themeColors.accent ?? "#7aa2f7")
 
-                                                Keys.onReturnPressed: joinBtn.submitConnection()
-                                                Keys.onEnterPressed: joinBtn.submitConnection()
-                                            }
+                                                    function submitConnection() {
+                                                        if (isCurrentlyConnecting) return;
+                                                        root.initiateConnection(ssid, passField.text, index);
+                                                    }
 
-                                            Rectangle {
-                                                id: joinBtn
-                                                Layout.preferredWidth: 46
-                                                Layout.preferredHeight: 28
-                                                radius: 6
-                                                color: root.themeColors.accent ?? "#7aa2f7"
+                                                    Text {
+                                                        anchors.centerIn: parent
+                                                        text: isCurrentlyConnecting ? "Joining..." : "Join"
+                                                        color: isCurrentlyConnecting ? "white" : (root.themeColors.bg ?? "#16161e")
+                                                        font.bold: true; font.pixelSize: 11
+                                                    }
 
-                                                function submitConnection() {
-                                                    var cmd = "nmcli dev wifi connect '" + ssid + "' password '" + passField.text + "'";
-                                                    wifiConnector.command = ["sh", "-c", cmd];
-                                                    wifiConnector.running = true;
-                                                    wifiModel.setProperty(index, "isExpanded", false);
-                                                    wifiModel.setProperty(index, "showPassword", false);
-                                                }
-
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: "Join"
-                                                    color: root.themeColors.bg ?? "#16161e"
-                                                    font.bold: true; font.pixelSize: 11
-                                                }
-
-                                                MouseArea {
-                                                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                                                    onClicked: joinBtn.submitConnection()
-                                                }
-                                            }
-
-                                            Rectangle {
-                                                Layout.preferredWidth: 32
-                                                Layout.preferredHeight: 28
-                                                radius: 6
-                                                color: root.themeColors.hover_bg ?? "#24283b"
-
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: "✕"
-                                                    color: root.themeColors.text_secondary ?? "#565f89"
-                                                    font.pixelSize: 11
-                                                }
-
-                                                MouseArea {
-                                                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                                                    onClicked: {
-                                                        wifiModel.setProperty(index, "showPassword", false);
+                                                    MouseArea {
+                                                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                                        enabled: !isCurrentlyConnecting
+                                                        onClicked: joinBtn.submitConnection()
                                                     }
                                                 }
+
+                                                Rectangle {
+                                                    Layout.preferredWidth: 32
+                                                    Layout.preferredHeight: 28
+                                                    radius: 6
+                                                    color: root.themeColors.hover_bg ?? "#24283b"
+                                                    enabled: !isCurrentlyConnecting
+
+                                                    Text {
+                                                        anchors.centerIn: parent
+                                                        text: "✕"
+                                                        color: root.themeColors.text_secondary ?? "#565f89"
+                                                        font.pixelSize: 11
+                                                    }
+
+                                                    MouseArea {
+                                                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                                        onClicked: {
+                                                            wifiModel.setProperty(index, "showPassword", false);
+                                                            wifiModel.setProperty(index, "hasError", false);
+                                                            wifiModel.setProperty(index, "errorMsg", "");
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            // Inline Wrong Password Error Notification
+                                            Text {
+                                                visible: hasError
+                                                text: "⚠ " + errorMsg
+                                                color: "#f44336"
+                                                font.pixelSize: 11
+                                                font.bold: true
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
                                             }
                                         }
                                     }
 
-                                    // Touch listener for top of card
                                     MouseArea {
                                         anchors.top: parent.top
                                         anchors.left: parent.left
                                         anchors.right: parent.right
                                         height: 44
-                                        enabled: !inUse
+                                        enabled: !inUse && !isCurrentlyConnecting
                                         cursorShape: Qt.PointingHandCursor
                                         onClicked: {
                                             var nextState = !isExpanded;
@@ -2030,6 +2195,7 @@ for f in sorted(list(set(files))):
                                             }
                                             wifiModel.setProperty(index, "isExpanded", nextState);
                                             wifiModel.setProperty(index, "showPassword", false);
+                                            wifiModel.setProperty(index, "hasError", false);
                                         }
                                     }
                                 }
@@ -2056,7 +2222,6 @@ for f in sorted(list(set(files))):
                                     anchors.margins: 14
                                     spacing: 14
 
-                                    // Hotspot Status Header
                                     RowLayout {
                                         Layout.fillWidth: true
                                         spacing: 10
@@ -2088,7 +2253,6 @@ for f in sorted(list(set(files))):
                                         }
                                     }
 
-                                    // SSID Input Field
                                     ColumnLayout {
                                         Layout.fillWidth: true
                                         spacing: 4
@@ -2119,7 +2283,6 @@ for f in sorted(list(set(files))):
                                         }
                                     }
 
-                                    // Password Input Field
                                     ColumnLayout {
                                         Layout.fillWidth: true
                                         spacing: 4
@@ -2154,7 +2317,6 @@ for f in sorted(list(set(files))):
                                                 }
                                             }
 
-                                            // Show / Hide Password Toggle
                                             Rectangle {
                                                 Layout.preferredWidth: 32
                                                 Layout.preferredHeight: 32
@@ -2178,7 +2340,6 @@ for f in sorted(list(set(files))):
 
                                     Item { Layout.fillHeight: true }
 
-                                    // Primary Enable / Disable Toggle Action
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 38
