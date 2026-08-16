@@ -19,6 +19,7 @@ hl.bind(mainMod .. " + W", hl.dsp.global("quickshell:toggleWallpaperNotch"))
 hl.bind(mainMod .. " + SHIFT + W", hl.dsp.global("quickshell:toggleTransitionNotch"))
 hl.bind(mainMod .. " + grave", hl.dsp.global("quickshell:resetNotchToIdle"))
 hl.bind(mainMod .. " + R", hl.dsp.global("quickshell:toggleRecordNotch"))
+hl.bind(mainMod .. " + P", hl.dsp.global("quickshell:togglePowerMenuNotch"))
 hl.bind("Print", hl.dsp.exec_cmd("grimblast --notify copysave area"))
 
 -- Example binds, see https://wiki.hypr.land/Configuring/Basics/Binds/ for more
