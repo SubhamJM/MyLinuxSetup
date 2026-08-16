@@ -225,15 +225,8 @@ ShellRoot {
         }
 
         WlrLayershell.keyboardFocus: (root.activeMode !== "idle" && root.activeMode !== "hover" && root.activeMode !== "osd") 
-            ? WlrKeyboardFocus.OnDemand 
+            ? WlrKeyboardFocus.Exclusive 
             : WlrKeyboardFocus.None
-
-        onActiveFocusChanged: {
-            if (!activeFocus && root.activeMode !== "idle" && root.activeMode !== "hover" && root.activeMode !== "osd" && root.activeMode !== "wifi" && root.activeMode !== "bluetooth" && root.activeMode !== "battery") {
-                root.activeMode = "idle";
-                root.openedViaShortcut = false;
-            }
-        }
 
         Item {
             id: notchContainer
