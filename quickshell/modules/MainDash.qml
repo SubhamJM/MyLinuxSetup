@@ -57,45 +57,63 @@ Item {
 
         Item { Layout.fillWidth: true; implicitWidth: 10; visible: root.activeMode === "hover" }
 
-        // Date & Time
-        Rectangle {
-            Layout.alignment: Qt.AlignCenter
-            width: timeRow.implicitWidth + 24
-            implicitWidth: width
-            height: 26
-            radius: 8
-            color: timeMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
-            border.width: timeMouse.containsMouse ? 1 : 0
-            border.color: Theme.colors.border_hover ?? "#7aa2f7"
-            Behavior on color { ColorAnimation { duration: 150 } }
+        // Date & Time + Recording Dot
+		Rectangle {
+			Layout.alignment: Qt.AlignCenter
+			width: timeRow.implicitWidth + (root.isScreenRecording ? 32 : 24)
+			implicitWidth: width
+			height: 26
+			radius: 8
+			color: timeMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
+			border.width: timeMouse.containsMouse ? 1 : 0
+			border.color: Theme.colors.border_hover ?? "#7aa2f7"
+			Behavior on color { ColorAnimation { duration: 150 } }
 
-            Row {
-                id: timeRow
-                anchors.centerIn: parent
-                spacing: 8
+			Row {
+				id: timeRow
+				anchors.centerIn: parent
+				spacing: 6
 
-                Text {
-                    text: Qt.formatDateTime(clock.date, "ddd d MMM")
-                    color: Theme.colors.text_secondary ?? "#565f89"
-                    font.pixelSize: 13
-                    font.bold: true
-                    visible: root.activeMode === "hover"
-                }
-                Text {
-                    text: Qt.formatDateTime(clock.date, root.activeMode === "hover" ? "hh:mm AP" : "hh:mm")
-                    color: Theme.colors.text_primary ?? "white"
-                    font.pixelSize: 14
-                    font.bold: true
-                    renderType: Text.QtRendering
-                }
-            }
-            MouseArea {
-                id: timeMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-            }
-        }
+				Text {
+					text: Qt.formatDateTime(clock.date, "ddd d MMM")
+					color: Theme.colors.text_secondary ?? "#565f89"
+					font.pixelSize: 13
+					font.bold: true
+					visible: root.activeMode === "hover"
+				}
+				Text {
+					text: Qt.formatDateTime(clock.date, root.activeMode === "hover" ? "hh:mm AP" : "hh:mm")
+					color: Theme.colors.text_primary ?? "white"
+					font.pixelSize: 14
+					font.bold: true
+					renderType: Text.QtRendering
+				}
+
+				// Red Recording Dot (Right side of Time)
+				Rectangle {
+					anchors.verticalCenter: parent.verticalCenter
+					width: 7; height: 7; radius: 3.5
+					color: "#f44336"
+					visible: root.isScreenRecording
+
+					SequentialAnimation on opacity {
+						running: root.isScreenRecording
+						loops: Animation.Infinite
+						NumberAnimation { from: 1.0; to: 0.2; duration: 800; easing.type: Easing.InOutQuad }
+						NumberAnimation { from: 0.2; to: 1.0; duration: 800; easing.type: Easing.InOutQuad }
+					}
+				}
+			}
+			MouseArea {
+				id: timeMouse
+				anchors.fill: parent
+				hoverEnabled: true
+				cursorShape: Qt.PointingHandCursor
+				onClicked: {
+					if (root.isScreenRecording) root.switchMode("recorder");
+				}
+			}
+		}
 
         Item { Layout.fillWidth: true; implicitWidth: 10; visible: root.activeMode === "hover" }
 
@@ -141,7 +159,25 @@ Item {
                     anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                     onClicked: root.switchMode("bluetooth")
                 }
-            }
+			}
+
+			Rectangle {
+				width: 26; height: 26; radius: 8
+				color: recMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
+				border.width: recMouse.containsMouse ? 1 : 0
+				border.color: Theme.colors.border_hover ?? "#7aa2f7"
+				Text {
+					anchors.centerIn: parent
+					text: "󰕧"
+					font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 16
+					color: Theme.colors.text_primary ?? "#c0caf5"
+				}
+				MouseArea {
+					id: recMouse
+					anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+					onClicked: root.switchMode("recorder")
+				}
+			}
 
             // Battery
             Rectangle {
