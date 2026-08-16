@@ -80,8 +80,8 @@ ShellRoot {
     }
 
     readonly property int targetWidth: {
-        if (activeMode === "hover" && typeof dashMod !== "undefined") {
-            return Math.max(modeDimensions["hover"].width, dashMod.implicitWidth);
+        if ((activeMode === "hover" || activeMode === "idle") && typeof dashMod !== "undefined") {
+            return dashMod.implicitWidth;
         }
         return modeDimensions[activeMode]?.width ?? modeDimensions["idle"].width;
     }
@@ -108,13 +108,20 @@ ShellRoot {
         }
         if (activeMode === "bluetooth") {
             var btCount = btMod.filteredDevices.length;
-            if (btCount === 0) return 220;
-            return Math.min(440, Math.max(200, 66 + (btCount * 51)));
+            if (btCount === 0) return 266;
+
+            var listItemsHeight = 0;
+            for (var i = 0; i < btCount; i++) {
+                var dev = btMod.filteredDevices[i];
+                var expanded = btMod.stateMap[dev.mac] && btMod.stateMap[dev.mac].isExpanded;
+                listItemsHeight += (expanded ? 84 : 48) + 6;
+            }
+            return Math.min(486, Math.max(246, 112 + listItemsHeight));
         }
         if (activeMode === "wifi") {
-            if (wifiMod.activeTab === "hotspot") return 320;
-            if (!wifiMod.wifiEnabled) return 180;
-            if (wifiMod.model.count === 0) return 240;
+            if (wifiMod.activeTab === "hotspot") return 366;
+            if (!wifiMod.wifiEnabled) return 226;
+            if (wifiMod.model.count === 0) return 286;
 
             var listItemsHeight = 0;
             for (var i = 0; i < wifiMod.model.count; i++) {
@@ -122,7 +129,7 @@ ShellRoot {
                 var cardH = item.inUse ? 50 : (item.isExpanded ? (item.showPassword ? (item.hasError ? 138 : 116) : 84) : 48);
                 listItemsHeight += (cardH + 6);
             }
-            return Math.min(460, Math.max(200, 106 + listItemsHeight));
+            return Math.min(506, Math.max(246, 152 + listItemsHeight));
         }
         return modeDimensions[activeMode]?.height ?? modeDimensions["idle"].height;
     } 
@@ -207,6 +214,7 @@ ShellRoot {
     GlobalShortcut { name: "togglePowerMenuNotch"; onPressed: root.switchMode("powermenu", true) }
     GlobalShortcut { name: "toggleCalendarNotch"; onPressed: root.switchMode("calendar", true) }
     GlobalShortcut { name: "toggleClipboardNotch"; onPressed: root.switchMode("clipboard", true) }
+    GlobalShortcut { name: "toggleMusicInfoNotch"; onPressed: if (typeof dashMod !== "undefined") dashMod.showMusicInfo = !dashMod.showMusicInfo }
 
 
 
@@ -317,9 +325,8 @@ ShellRoot {
                 radius: 0
                 bottomLeftRadius: root.targetRadius
                 bottomRightRadius: root.targetRadius
-
-                Behavior on width  { NumberAnimation { duration: 180; easing.type: Easing.OutQuad } }
-                Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutQuad } }
+                Behavior on width  { NumberAnimation { duration: 400; easing.type: Easing.OutExpo } }
+                Behavior on height { NumberAnimation { duration: 400; easing.type: Easing.OutExpo } }
 
                 // 1. Persistent Dash Layer (Fades in when returning to idle/hover, fades out on expansion)
                 Item {

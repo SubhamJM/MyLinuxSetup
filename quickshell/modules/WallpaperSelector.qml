@@ -9,6 +9,7 @@ ColumnLayout {
     spacing: 10
 
     property alias wallpaperGrid: wallpaperCarousel
+    property string lastAppliedWallpaper: ""
     ListModel { id: wallpaperModel }
 
     Process {
@@ -47,8 +48,18 @@ for f in sorted(list(set(files))):
                 for (var j = 0; j < temp.length; j++) {
                     wallpaperModel.append(temp[j]);
                 }
-                if (wallpaperModel.count > 0 && wallpaperCarousel.currentIndex >= wallpaperModel.count) {
-                    wallpaperCarousel.currentIndex = 0;
+                
+                var targetIdx = 0;
+                if (wallModule.lastAppliedWallpaper !== "") {
+                    for (var k = 0; k < wallpaperModel.count; k++) {
+                        if (wallpaperModel.get(k).filePath === wallModule.lastAppliedWallpaper) {
+                            targetIdx = k;
+                            break;
+                        }
+                    }
+                }
+                if (wallpaperModel.count > 0) {
+                    wallpaperCarousel.currentIndex = targetIdx;
                 }
             }
         }
@@ -314,6 +325,7 @@ for f in sorted(list(set(files))):
     function applyWallpaper(idx) {
         if (idx >= 0 && idx < wallpaperModel.count) {
             var path = wallpaperModel.get(idx).filePath;
+            wallModule.lastAppliedWallpaper = path;
             if (wallpaperRunner.running) wallpaperRunner.running = false;
             wallpaperRunner.command = [
                 "awww", "img", path,

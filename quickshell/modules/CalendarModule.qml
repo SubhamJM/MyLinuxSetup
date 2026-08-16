@@ -51,13 +51,13 @@ ColumnLayout {
             spacing: 6
             Text {
                 text: calModule.monthNames[calModule.viewDate.getMonth()]
-                font.pixelSize: 15
+                font.pixelSize: 18
                 font.bold: true
                 color: Theme.colors.text_primary ?? "white"
             }
             Text {
                 text: calModule.viewDate.getFullYear()
-                font.pixelSize: 15
+                font.pixelSize: 18
                 font.bold: false
                 color: Theme.colors.text_secondary ?? "#565f89"
             }
@@ -70,7 +70,7 @@ ColumnLayout {
             spacing: 4
 
             Rectangle {
-                width: 24; height: 24; radius: 12
+                width: 28; height: 28; radius: 14
                 color: prevMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
                 Behavior on color { ColorAnimation { duration: 100 } }
 
@@ -78,7 +78,7 @@ ColumnLayout {
                     anchors.centerIn: parent
                     text: "󰅁"
                     font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 13
+                    font.pixelSize: 14
                     color: prevMouse.containsMouse ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.text_secondary ?? "#565f89")
                 }
                 MouseArea {
@@ -91,14 +91,14 @@ ColumnLayout {
             }
 
             Rectangle {
-                width: 24; height: 24; radius: 12
+                width: 28; height: 28; radius: 14
                 color: todayMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
                 Behavior on color { ColorAnimation { duration: 100 } }
 
                 Text {
                     anchors.centerIn: parent
                     text: "•"
-                    font.pixelSize: 16
+                    font.pixelSize: 18
                     font.bold: true
                     color: todayMouse.containsMouse ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.text_secondary ?? "#565f89")
                 }
@@ -112,7 +112,7 @@ ColumnLayout {
             }
 
             Rectangle {
-                width: 24; height: 24; radius: 12
+                width: 28; height: 28; radius: 14
                 color: nextMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
                 Behavior on color { ColorAnimation { duration: 100 } }
 
@@ -120,7 +120,7 @@ ColumnLayout {
                     anchors.centerIn: parent
                     text: "󰅂"
                     font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 13
+                    font.pixelSize: 14
                     color: nextMouse.containsMouse ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.text_secondary ?? "#565f89")
                 }
                 MouseArea {
@@ -138,11 +138,13 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         Layout.preferredHeight: 16
-        spacing: 2
+        spacing: 8
 
         Repeater {
             model: calModule.dayNames
             Item {
+                required property int index
+                required property string modelData
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
@@ -165,8 +167,8 @@ ColumnLayout {
         Layout.fillHeight: true
         columns: 7
         rows: 6
-        columnSpacing: 2
-        rowSpacing: 2
+        columnSpacing: 8
+        rowSpacing: 8
 
         readonly property int totalDays: calModule.getDaysInMonth(calModule.viewDate.getFullYear(), calModule.viewDate.getMonth())
         readonly property int startOffset: calModule.getFirstDayOffset(calModule.viewDate.getFullYear(), calModule.viewDate.getMonth())
@@ -174,11 +176,18 @@ ColumnLayout {
         Repeater {
             model: 42
             delegate: Item {
+                required property int index
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
                 property int dayNum: index - calGrid.startOffset + 1
+                property int prevMonthDays: calModule.getDaysInMonth(
+                    calModule.viewDate.getMonth() === 0 ? calModule.viewDate.getFullYear() - 1 : calModule.viewDate.getFullYear(),
+                    calModule.viewDate.getMonth() === 0 ? 11 : calModule.viewDate.getMonth() - 1
+                )
                 property bool isValidDay: dayNum >= 1 && dayNum <= calGrid.totalDays
+                property int displayDay: isValidDay ? dayNum : (dayNum <= 0 ? prevMonthDays + dayNum : dayNum - calGrid.totalDays)
+                
                 property bool isToday: isValidDay && 
                                        dayNum === calModule.today.getDate() && 
                                        calModule.viewDate.getMonth() === calModule.today.getMonth() && 
@@ -186,22 +195,24 @@ ColumnLayout {
 
                 Rectangle {
                     anchors.centerIn: parent
-                    width: Math.min(parent.width, parent.height) * 0.92
+                    width: Math.min(parent.width, parent.height)
                     height: width
-                    radius: width / 2
+                    radius: 6
+                    scale: cellMouse.containsMouse ? (parent.isValidDay ? 1.05 : 1.02) : 1.0
 
                     color: parent.isToday 
                         ? (Theme.colors.accent ?? "#7aa2f7") 
-                        : (cellMouse.containsMouse && parent.isValidDay ? (Theme.colors.hover_bg ?? "#24283b") : "transparent")
+                        : (cellMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent")
                     
-                    Behavior on color { ColorAnimation { duration: 100 } }
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                    Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.OutBack } }
 
                     Text {
                         anchors.centerIn: parent
-                        visible: parent.parent.isValidDay
-                        text: parent.parent.dayNum > 0 ? parent.parent.dayNum : ""
-                        font.pixelSize: 12
+                        text: parent.parent.displayDay
+                        font.pixelSize: 13
                         font.bold: parent.parent.isToday
+                        opacity: parent.parent.isValidDay ? (cellMouse.containsMouse ? 1.0 : 0.9) : (cellMouse.containsMouse ? 0.6 : 0.3)
                         color: parent.parent.isToday 
                             ? (Theme.colors.bg ?? "#16161e") 
                             : (cellMouse.containsMouse ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.text_primary ?? "white"))
@@ -210,8 +221,13 @@ ColumnLayout {
                     MouseArea {
                         id: cellMouse
                         anchors.fill: parent
-                        hoverEnabled: parent.parent.isValidDay
-                        cursorShape: parent.parent.isValidDay ? Qt.PointingHandCursor : Qt.ArrowCursor
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (!parent.parent.isValidDay) {
+                                calModule.changeMonth(parent.parent.dayNum <= 0 ? -1 : 1);
+                            }
+                        }
                     }
                 }
             }

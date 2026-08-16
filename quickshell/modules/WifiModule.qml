@@ -246,6 +246,38 @@ ColumnLayout {
         }
     }
 
+    // Current Connection Status (Dynamic Island style text block)
+    Rectangle {
+        Layout.fillWidth: true; height: 36; radius: 8
+        color: Theme.colors.hover_bg ?? "#24283b"
+        border.width: 1; border.color: Theme.colors.border ?? "#16161e"
+        
+        RowLayout {
+            anchors.fill: parent; anchors.margins: 8; spacing: 8
+            
+            Text {
+                text: (typeof dashMod !== "undefined" && dashMod.activeNetType === "eth") ? "󰈀" : 
+                      ((typeof dashMod !== "undefined" && dashMod.activeNetSignal > 75) ? "󰤨" : 
+                      ((typeof dashMod !== "undefined" && dashMod.activeNetSignal > 50) ? "󰤥" : 
+                      ((typeof dashMod !== "undefined" && dashMod.activeNetSignal > 25) ? "󰤢" : 
+                      ((typeof dashMod !== "undefined" && dashMod.activeNetType !== "") ? "󰤟" : "󰖩"))))
+                font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 15
+                color: Theme.colors.accent ?? "#7aa2f7"
+            }
+            Text {
+                Layout.fillWidth: true
+                text: {
+                    if (typeof dashMod === "undefined") return "Network status";
+                    if (dashMod.activeNetName === "") return dashMod.activeNetType === "eth" ? "Ethernet disconnected" : "Wi-Fi disconnected";
+                    return (dashMod.activeNetType === "eth" ? "Ethernet connected to " : "Wi-Fi connected to ") + dashMod.activeNetName;
+                }
+                font.pixelSize: 13; font.bold: true
+                color: Theme.colors.text_primary ?? "white"
+                elide: Text.ElideRight
+            }
+        }
+    }
+
     // Tab Switcher
     RowLayout {
         Layout.fillWidth: true
