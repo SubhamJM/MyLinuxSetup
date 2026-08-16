@@ -32,18 +32,22 @@ for f in sorted(list(set(files))):
         `]
         stdout: StdioCollector {
             onStreamFinished: {
-                wallpaperModel.clear();
                 var lines = this.text.trim().split("\n");
+                var temp = [];
                 for (var i = 0; i < lines.length; i++) {
                     var parts = lines[i].split("|||");
                     if (parts.length >= 2) {
-                        wallpaperModel.append({
+                        temp.push({
                             "fileName": parts[0],
                             "filePath": parts[1]
                         });
                     }
                 }
-                if (wallpaperModel.count > 0) {
+                wallpaperModel.clear();
+                for (var j = 0; j < temp.length; j++) {
+                    wallpaperModel.append(temp[j]);
+                }
+                if (wallpaperModel.count > 0 && wallpaperCarousel.currentIndex >= wallpaperModel.count) {
                     wallpaperCarousel.currentIndex = 0;
                 }
             }
@@ -92,7 +96,7 @@ for f in sorted(list(set(files))):
                 color: leftArrowMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
                 border.width: leftArrowMouse.containsMouse ? 1 : 0
                 border.color: Theme.colors.border_hover ?? "#7aa2f7"
-                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on color { ColorAnimation { duration: 80 } }
 
                 Text {
                     anchors.centerIn: parent
@@ -115,11 +119,11 @@ for f in sorted(list(set(files))):
                 focus: true
                 model: wallpaperModel
 
-                pathItemCount: Math.min(5, Math.max(3, wallpaperModel.count))
+                pathItemCount: 5
                 preferredHighlightBegin: 0.5
                 preferredHighlightEnd: 0.5
                 highlightRangeMode: PathView.StrictlyEnforceRange
-                highlightMoveDuration: 280
+                highlightMoveDuration: 180
 
                 readonly property real itemWidth: Math.min(270, Math.max(160, width * 0.44))
                 readonly property real itemHeight: height * 0.88
@@ -145,9 +149,7 @@ for f in sorted(list(set(files))):
                     }
                 }
 
-                // 5-Point Path with Flared Angles & Distinct Depth
                 path: Path {
-                    // P0: Off-screen Left
                     startX: -wallpaperCarousel.itemWidth * 0.35
                     startY: wallpaperCarousel.height / 2
                     PathAttribute { name: "itemScale"; value: 0.55 }
@@ -155,7 +157,6 @@ for f in sorted(list(set(files))):
                     PathAttribute { name: "itemZ"; value: 1 }
                     PathAttribute { name: "itemRotationY"; value: -42.0 }
 
-                    // P1: Stage Left (Angled outward facing Left)
                     PathLine {
                         x: wallpaperCarousel.width * 0.22
                         y: wallpaperCarousel.height / 2
@@ -165,7 +166,6 @@ for f in sorted(list(set(files))):
                     PathAttribute { name: "itemZ"; value: 10 }
                     PathAttribute { name: "itemRotationY"; value: -28.0 }
 
-                    // P2: Center Active (On Top & Flat)
                     PathLine {
                         x: wallpaperCarousel.width * 0.50
                         y: wallpaperCarousel.height / 2
@@ -175,7 +175,6 @@ for f in sorted(list(set(files))):
                     PathAttribute { name: "itemZ"; value: 30 }
                     PathAttribute { name: "itemRotationY"; value: 0.0 }
 
-                    // P3: Stage Right (Angled outward facing Right)
                     PathLine {
                         x: wallpaperCarousel.width * 0.78
                         y: wallpaperCarousel.height / 2
@@ -185,7 +184,6 @@ for f in sorted(list(set(files))):
                     PathAttribute { name: "itemZ"; value: 10 }
                     PathAttribute { name: "itemRotationY"; value: 28.0 }
 
-                    // P4: Off-screen Right
                     PathLine {
                         x: wallpaperCarousel.width + (wallpaperCarousel.itemWidth * 0.35)
                         y: wallpaperCarousel.height / 2
@@ -226,13 +224,12 @@ for f in sorted(list(set(files))):
                             anchors.margins: 2
                             source: filePath ? ("file://" + filePath) : ""
                             fillMode: Image.PreserveAspectCrop
-                            
                             asynchronous: true
                             cache: true
                             smooth: true
-                            mipmap: true
-                            sourceSize.width: 540
-                            sourceSize.height: 340
+                            mipmap: false
+                            sourceSize.width: 480
+                            sourceSize.height: 300
                         }
                     }
 
@@ -259,7 +256,7 @@ for f in sorted(list(set(files))):
                 color: rightArrowMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
                 border.width: rightArrowMouse.containsMouse ? 1 : 0
                 border.color: Theme.colors.border_hover ?? "#7aa2f7"
-                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on color { ColorAnimation { duration: 80 } }
 
                 Text {
                     anchors.centerIn: parent
@@ -296,7 +293,7 @@ for f in sorted(list(set(files))):
             color: applyMouse.containsMouse ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.hover_bg ?? "#24283b")
             border.width: 1
             border.color: Theme.colors.border_hover ?? "#7aa2f7"
-            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on color { ColorAnimation { duration: 80 } }
 
             Text {
                 anchors.centerIn: parent

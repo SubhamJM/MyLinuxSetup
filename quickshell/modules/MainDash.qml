@@ -8,7 +8,7 @@ Item {
     id: dash
     Layout.fillWidth: true
     Layout.fillHeight: true
-    implicitWidth: dashRow.implicitWidth + 24
+    implicitWidth: 560
 
     RowLayout {
         id: dashRow
@@ -21,9 +21,9 @@ Item {
         Row {
             Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
             spacing: 6
-            visible: root.activeMode === "hover"
-            opacity: visible ? 1 : 0
-            Behavior on opacity { NumberAnimation { duration: 200 } }
+            opacity: root.activeMode === "hover" ? 1.0 : 0.0
+            visible: opacity > 0.01
+            Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
 
             Repeater {
                 model: typeof Hyprland !== "undefined" && Hyprland.workspaces ? Hyprland.workspaces.values : []
@@ -33,7 +33,7 @@ Item {
                     color: isFocused ? (Theme.colors.accent ?? "#7aa2f7") : (wsMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent")
                     border.width: wsMouse.containsMouse && !isFocused ? 1 : 0
                     border.color: Theme.colors.border_hover ?? "#7aa2f7"
-                    Behavior on color { ColorAnimation { duration: 150 } }
+                    Behavior on color { ColorAnimation { duration: 80 } }
 
                     Text {
                         anchors.centerIn: parent
@@ -55,75 +55,74 @@ Item {
             }
         }
 
-        Item { Layout.fillWidth: true; implicitWidth: 10; visible: root.activeMode === "hover" }
+        Item { Layout.fillWidth: true; Layout.minimumWidth: 10 }
 
         // Date & Time + Recording Dot
-		Rectangle {
-			Layout.alignment: Qt.AlignCenter
-			width: timeRow.implicitWidth + (root.isScreenRecording ? 32 : 24)
-			implicitWidth: width
-			height: 26
-			radius: 8
-			color: timeMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
-			border.width: timeMouse.containsMouse ? 1 : 0
-			border.color: Theme.colors.border_hover ?? "#7aa2f7"
-			Behavior on color { ColorAnimation { duration: 150 } }
+        Rectangle {
+            Layout.alignment: Qt.AlignCenter
+            width: timeRow.implicitWidth + (root.isScreenRecording ? 32 : 24)
+            implicitWidth: width
+            height: 26
+            radius: 8
+            color: timeMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
+            border.width: timeMouse.containsMouse ? 1 : 0
+            border.color: Theme.colors.border_hover ?? "#7aa2f7"
+            Behavior on color { ColorAnimation { duration: 80 } }
 
-			Row {
-				id: timeRow
-				anchors.centerIn: parent
-				spacing: 6
+            Row {
+                id: timeRow
+                anchors.centerIn: parent
+                spacing: 6
 
-				Text {
-					text: Qt.formatDateTime(clock.date, "ddd d MMM")
-					color: Theme.colors.text_secondary ?? "#565f89"
-					font.pixelSize: 13
-					font.bold: true
-					visible: root.activeMode === "hover"
-				}
-				Text {
-					text: Qt.formatDateTime(clock.date, root.activeMode === "hover" ? "hh:mm AP" : "hh:mm")
-					color: Theme.colors.text_primary ?? "white"
-					font.pixelSize: 14
-					font.bold: true
-					renderType: Text.QtRendering
-				}
+                Text {
+                    text: Qt.formatDateTime(clock.date, "ddd d MMM")
+                    color: Theme.colors.text_secondary ?? "#565f89"
+                    font.pixelSize: 13
+                    font.bold: true
+                    visible: root.activeMode === "hover"
+                }
+                Text {
+                    text: Qt.formatDateTime(clock.date, root.activeMode === "hover" ? "hh:mm AP" : "hh:mm")
+                    color: Theme.colors.text_primary ?? "white"
+                    font.pixelSize: 14
+                    font.bold: true
+                    renderType: Text.QtRendering
+                }
 
-				// Red Recording Dot (Right side of Time)
-				Rectangle {
-					anchors.verticalCenter: parent.verticalCenter
-					width: 7; height: 7; radius: 3.5
-					color: "#f44336"
-					visible: root.isScreenRecording
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 7; height: 7; radius: 3.5
+                    color: "#f44336"
+                    visible: root.isScreenRecording
 
-					SequentialAnimation on opacity {
-						running: root.isScreenRecording
-						loops: Animation.Infinite
-						NumberAnimation { from: 1.0; to: 0.2; duration: 800; easing.type: Easing.InOutQuad }
-						NumberAnimation { from: 0.2; to: 1.0; duration: 800; easing.type: Easing.InOutQuad }
-					}
-				}
-			}
-			MouseArea {
-				id: timeMouse
-				anchors.fill: parent
-				hoverEnabled: true
-				cursorShape: Qt.PointingHandCursor
-				onClicked: {
-					if (root.isScreenRecording) root.switchMode("recorder");
-				}
-			}
-		}
+                    SequentialAnimation on opacity {
+                        running: root.isScreenRecording
+                        loops: Animation.Infinite
+                        NumberAnimation { from: 1.0; to: 0.2; duration: 800; easing.type: Easing.InOutQuad }
+                        NumberAnimation { from: 0.2; to: 1.0; duration: 800; easing.type: Easing.InOutQuad }
+                    }
+                }
+            }
+            MouseArea {
+                id: timeMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    if (root.isScreenRecording) root.switchMode("recorder");
+                }
+            }
+        }
 
-        Item { Layout.fillWidth: true; implicitWidth: 10; visible: root.activeMode === "hover" }
+        Item { Layout.fillWidth: true; Layout.minimumWidth: 10 }
 
         // System Tray & Actions
         Row {
             Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
             spacing: 6
-            visible: root.activeMode === "hover"
-            opacity: visible ? 1 : 0
-            Behavior on opacity { NumberAnimation { duration: 200 } }
+            opacity: root.activeMode === "hover" ? 1.0 : 0.0
+            visible: opacity > 0.01
+            Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
 
             Rectangle {
                 width: 26; height: 26; radius: 8
@@ -159,69 +158,61 @@ Item {
                     anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                     onClicked: root.switchMode("bluetooth")
                 }
-			}
+            }
 
-			Rectangle {
-				width: 26; height: 26; radius: 8
-				color: recMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
-				border.width: recMouse.containsMouse ? 1 : 0
-				border.color: Theme.colors.border_hover ?? "#7aa2f7"
-				Text {
-					anchors.centerIn: parent
-					text: "󰕧"
-					font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 16
-					color: Theme.colors.text_primary ?? "#c0caf5"
-				}
-				MouseArea {
-					id: recMouse
-					anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-					onClicked: root.switchMode("recorder")
-				}
-			}
+            Rectangle {
+                width: 26; height: 26; radius: 8
+                color: recMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
+                border.width: recMouse.containsMouse ? 1 : 0
+                border.color: Theme.colors.border_hover ?? "#7aa2f7"
+                Text {
+                    anchors.centerIn: parent
+                    text: "󰕧"
+                    font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 16
+                    color: Theme.colors.text_primary ?? "#c0caf5"
+                }
+                MouseArea {
+                    id: recMouse
+                    anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onClicked: root.switchMode("recorder")
+                }
+            }
 
             // Battery
             Rectangle {
-                width: battRow.implicitWidth + 16; height: 26; radius: 8
-                color: battMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
-                border.width: battMouse.containsMouse ? 1 : 0
-                border.color: Theme.colors.border_hover ?? "#7aa2f7"
+				width: battRow.implicitWidth + 16; height: 26; radius: 8
+				color: battMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
+				border.width: battMouse.containsMouse ? 1 : 0
+				border.color: Theme.colors.border_hover ?? "#7aa2f7"
 
-                Row {
-                    id: battRow
-                    anchors.centerIn: parent
-                    spacing: 6
-                    property int batteryLevel: 100
-                    property bool isCharging: false
+				Row {
+					id: battRow
+					anchors.centerIn: parent
+					spacing: 6
+					property int batteryLevel: typeof battMod !== "undefined" ? battMod.batteryLevel : 100
+					property bool isCharging: typeof battMod !== "undefined" ? battMod.isCharging : false
 
-                    Timer {
-                        interval: 5000; running: root.activeMode === "hover"; repeat: true; triggeredOnStart: true
-                        onTriggered: {
-                            var xhrCap = new XMLHttpRequest();
-                            xhrCap.open("GET", "file:///sys/class/power_supply/BAT1/capacity", true);
-                            xhrCap.onreadystatechange = function() { if (xhrCap.readyState === XMLHttpRequest.DONE) { var val = parseInt(xhrCap.responseText); if (!isNaN(val)) parent.batteryLevel = val; } }
-                            xhrCap.send();
-
-                            var xhrStat = new XMLHttpRequest();
-                            xhrStat.open("GET", "file:///sys/class/power_supply/BAT1/status", true);
-                            xhrStat.onreadystatechange = function() { if (xhrStat.readyState === XMLHttpRequest.DONE) { parent.isCharging = (xhrStat.responseText.trim() === "Charging"); } }
-                            xhrStat.send();
-                        }
-                    }
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: parent.isCharging ? "󰂄" : (parent.batteryLevel > 20 ? "󰁹" : "󰂃")
-                        font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 15
-                        color: parent.isCharging || parent.batteryLevel > 20 ? (Theme.colors.accent ?? "#7aa2f7") : "#f44336"
-                    }
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: parent.batteryLevel + "%"
-                        color: Theme.colors.text_primary ?? "white"
-                        font.pixelSize: 12; font.bold: true; font.features: { "tnum": 1 }
-                    }
-                }
-                MouseArea { id: battMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor }
-            }
+					Text {
+						anchors.verticalCenter: parent.verticalCenter
+						text: parent.isCharging ? "󰂄" : (parent.batteryLevel > 20 ? "󰁹" : "󰂃")
+						font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 15
+						color: parent.isCharging || parent.batteryLevel > 20 ? (Theme.colors.accent ?? "#7aa2f7") : "#f44336"
+					}
+					Text {
+						anchors.verticalCenter: parent.verticalCenter
+						text: parent.batteryLevel + "%"
+						color: Theme.colors.text_primary ?? "white"
+						font.pixelSize: 12; font.bold: true; font.features: { "tnum": 1 }
+					}
+				}
+				MouseArea { 
+					id: battMouse
+					anchors.fill: parent
+					hoverEnabled: true
+					cursorShape: Qt.PointingHandCursor
+					onClicked: root.switchMode("battery")
+				}
+			}
 
             Item {
                 width: 12; height: 26
