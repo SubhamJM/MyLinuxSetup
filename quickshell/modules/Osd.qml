@@ -9,15 +9,15 @@ Item {
 
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: 8
-        anchors.rightMargin: 8
-        spacing: 16
+        anchors.leftMargin: 4
+        anchors.rightMargin: 4
+        spacing: 12
 
         Text {
-            text: root.osdType === "brightness" ? "󰃠" : (root.osdValue == 0 ? "󰖁" : "󰕾")
+            text: root.osdType === "brightness" ? "󰃠" : (root.osdValue <= 0 ? "󰖁" : (root.osdValue > 60 ? "󰕾" : "󰖀"))
             font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 18
-            color: Theme.colors.text_primary ?? "#c0caf5"
+            font.pixelSize: 16
+            color: Theme.colors.accent ?? "#7aa2f7"
             Layout.alignment: Qt.AlignVCenter
         }
 
@@ -38,18 +38,18 @@ Item {
 
                 Behavior on width {
                     enabled: root.osdReady
-                    NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                    NumberAnimation { duration: 100; easing.type: Easing.OutCubic }
                 }
             }
         }
 
         Text {
             text: root.osdValue + "%"
-            font.pixelSize: 13
+            font.pixelSize: 12
             font.bold: true
             color: Theme.colors.text_primary ?? "#c0caf5"
             Layout.alignment: Qt.AlignVCenter
-            Layout.minimumWidth: 35
+            Layout.minimumWidth: 32
             horizontalAlignment: Text.AlignRight
         }
     }

@@ -18,8 +18,9 @@ hl.bind(mainMod .. " + T", hl.dsp.global("quickshell:toggleThemeNotch"))
 hl.bind(mainMod .. " + W", hl.dsp.global("quickshell:toggleWallpaperNotch"))
 hl.bind(mainMod .. " + SHIFT + W", hl.dsp.global("quickshell:toggleTransitionNotch"))
 hl.bind(mainMod .. " + grave", hl.dsp.global("quickshell:resetNotchToIdle"))
-hl.bind(mainMod .. " + R", hl.dsp.global("quickshell:toggleRecordNotch"))
+hl.bind(mainMod .. " + R", hl.dsp.global("quickshell:toggleRecorderNotch"))
 hl.bind(mainMod .. " + P", hl.dsp.global("quickshell:togglePowerMenuNotch"))
+hl.bind(mainMod .. " + V", hl.dsp.global("quickshell:toggleClipboardNotch"))
 hl.bind("Print", hl.dsp.exec_cmd("grimblast --notify copysave area"))
 
 -- Example binds, see https://wiki.hypr.land/Configuring/Basics/Binds/ for more
@@ -28,8 +29,7 @@ local closeWindowBind = hl.bind(mainMod .. " + Q", hl.dsp.window.close())
 -- closeWindowBind:set_enabled(false)
 hl.bind(mainMod .. " + M", hl.dsp.exec_cmd("command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch 'hl.dsp.exit()'"))
 hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
-hl.bind(mainMod .. " + V", hl.dsp.window.float({ action = "toggle" }))
-hl.bind(mainMod .. " + P", hl.dsp.window.pseudo())
+hl.bind(mainMod .. " + SHIFT + V", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"))    -- dwindle only
 
 

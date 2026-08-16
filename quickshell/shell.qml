@@ -24,7 +24,8 @@ ShellRoot {
         "recorder":   { width: 380, height: 225, radius: 12 },
         "battery":    { width: 380, height: 188, radius: 12 },
         "powermenu":  { width: 342, height: 78,  radius: 14 },
-        "calendar":   { width: 320, height: 280, radius: 12 }
+        "calendar":   { width: 320, height: 280, radius: 12 },
+        "clipboard":  { width: 460, height: 380, radius: 12 }
     })
 
     property string activeMode: "idle"
@@ -51,6 +52,7 @@ ShellRoot {
         else if (activeMode === "theme") themeMod.themeList.forceActiveFocus();
         else if (activeMode === "wallpaper") wallMod.wallpaperGrid.forceActiveFocus();
         else if (activeMode === "transition") transMod.transitionGrid.forceActiveFocus();
+        else if (activeMode === "clipboard" && typeof clipMod !== "undefined") clipMod.searchInput.forceActiveFocus();
     }
 
     onActiveModeChanged: {
@@ -72,6 +74,7 @@ ShellRoot {
         Qt.callLater(() => {
             root.regainFocus();
             if (activeMode !== "launcher") launcherMod.searchInput.text = "";
+            if (activeMode !== "clipboard" && typeof clipMod !== "undefined") clipMod.searchInput.text = "";
         });
     }
 
@@ -86,6 +89,11 @@ ShellRoot {
         if (activeMode === "calendar") return 280;
         if (activeMode === "powermenu") return 78;
         if (activeMode === "battery") return 188;
+        if (activeMode === "clipboard") {
+            if (typeof clipMod === "undefined" || clipMod.calculatedCount === 0) return 220;
+            var clipCalcH = 66 + (clipMod.calculatedCount * 48);
+            return Math.min(440, Math.max(180, clipCalcH));
+        }
         if (activeMode === "recorder") {
             if (typeof recMod === "undefined") return 225;
             if (!recMod.recordAudio) return 205;
@@ -197,6 +205,7 @@ ShellRoot {
     GlobalShortcut { name: "toggleRecorderNotch"; onPressed: root.switchMode("recorder", true) }
     GlobalShortcut { name: "togglePowerMenuNotch"; onPressed: root.switchMode("powermenu", true) }
     GlobalShortcut { name: "toggleCalendarNotch"; onPressed: root.switchMode("calendar", true) }
+    GlobalShortcut { name: "toggleClipboardNotch"; onPressed: root.switchMode("clipboard", true) }
 
     // Invisible Fullscreen Backdrop
     PanelWindow {
@@ -338,11 +347,16 @@ ShellRoot {
                 Item {
                     id: modulesContainer
                     anchors.fill: parent
-                    anchors.margins: 12
-                    z: 1
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 12
+                    anchors.topMargin: root.activeMode === "osd" ? 6 : 12
+                    anchors.bottomMargin: root.activeMode === "osd" ? 6 : 12
+                    z: 2
 
-                    opacity: (!root.isDashMode && notch.height > 60) ? 1.0 : 0.0
-                    visible: opacity > 0.01
+                    // Allow OSD to become visible at lower heights
+                    opacity: (!root.isDashMode && (notch.height > 35 || root.activeMode === "osd")) ? 1.0 : 0.0
+                    visible: opacity > 0.001
+                    enabled: !root.isDashMode
                     Behavior on opacity { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
 
                     StackLayout {
@@ -363,6 +377,7 @@ ShellRoot {
                                 case "battery":    return 8;
                                 case "powermenu":  return 9;
                                 case "calendar":   return 10;
+                                case "clipboard":  return 11;
                                 default:           return 0;
                             }
                         }
@@ -378,6 +393,7 @@ ShellRoot {
                         BatteryModule      { id: battMod }
                         PowerMenu          { id: powerMod }
                         CalendarModule     { id: calMod }
+                        ClipboardModule    { id: clipMod }
                     }
                 }
 
@@ -412,3 +428,4 @@ ShellRoot {
         }
     }
 }
+

@@ -58,7 +58,6 @@ e_now = read_num('energy_now')
 e_full = read_num('energy_full')
 e_design = read_num('energy_full_design')
 
-# Lock calculations to nominal design voltage to eliminate live fluctuating drops
 v_design = read_num('voltage_min_design') or 11500000.0
 
 if e_full is None or e_design is None or e_design == 0:
@@ -110,10 +109,12 @@ print(f'{cap}|||{status}|||{e_now:.1f}|||{e_full:.1f}|||{e_design:.1f}|||{health
         }
     }
 
+    // 1-second update interval for real-time responsiveness
     Timer {
-        interval: 3000
-        running: root.activeMode === "battery" || root.activeMode === "hover"
+        interval: 1000
+        running: root.activeMode === "battery" || root.activeMode === "hover" || root.activeMode === "idle"
         repeat: true
+        triggeredOnStart: true
         onTriggered: {
             if (!battDetailScanner.running) battDetailScanner.running = true;
             if (root.activeMode === "battery" && !profileChecker.running) profileChecker.running = true;
@@ -148,7 +149,7 @@ print(f'{cap}|||{status}|||{e_now:.1f}|||{e_full:.1f}|||{e_design:.1f}|||{health
                 anchors.centerIn: parent
                 spacing: 4
                 Text {
-                    text: batteryModule.isCharging ? "󰂄" : "󰁹"
+                    text: batteryModule.isCharging ? "󱐋" : "󰁹"
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 12
                     color: batteryModule.isCharging ? (Theme.colors.bg ?? "#16161e") : (Theme.colors.accent ?? "#7aa2f7")
@@ -278,7 +279,7 @@ print(f'{cap}|||{status}|||{e_now:.1f}|||{e_full:.1f}|||{e_design:.1f}|||{health
                     spacing: 1
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "󰗑"
+                        text: "󰾅"
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 13
                         color: parent.parent.isSelected ? (Theme.colors.bg ?? "#16161e") : (Theme.colors.text_primary ?? "white")
