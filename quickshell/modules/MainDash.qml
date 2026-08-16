@@ -48,7 +48,7 @@ Item {
                 var lines = this.text.split("\n");
                 var status = lines[0] ? lines[0].trim() : "";
                 dash.playbackStatus = status;
-                dash.isMediaPlaying = (status === "Playing" || status === "Paused");
+                dash.isMediaPlaying = (status === "Playing");
                 dash.currentSongTitle = lines[1] ? lines[1].trim() : "";
                 dash.currentSongArtist = lines[2] ? lines[2].trim() : "";
                 
@@ -449,50 +449,6 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                 }
 
-                // Media Controls
-                Row {
-                    spacing: 8
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: dash.isMediaPlaying && root.activeMode === "idle"
-                    
-                    Text {
-                        text: "󰒮"
-                        font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 15
-                        color: prevMouse.containsMouse ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.text_secondary ?? "#565f89")
-                        MouseArea {
-                            id: prevMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                var proc = Qt.createQmlObject('import Quickshell.Io 1.0; Process { command: ["playerctl", "previous"]; running: true }', dash);
-                                proc.destroy(1000);
-                            }
-                        }
-                    }
-                    Text {
-                        text: dash.playbackStatus === "Playing" ? "󰏤" : "󰐊"
-                        font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 15
-                        color: playMouse.containsMouse ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.text_primary ?? "white")
-                        MouseArea {
-                            id: playMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                dash.playbackStatus = dash.playbackStatus === "Playing" ? "Paused" : "Playing";
-                                var proc = Qt.createQmlObject('import Quickshell.Io 1.0; Process { command: ["playerctl", "play-pause"]; running: true }', dash);
-                                proc.destroy(1000);
-                            }
-                        }
-                    }
-                    Text {
-                        text: "󰒭"
-                        font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 15
-                        color: nextMouse.containsMouse ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.text_secondary ?? "#565f89")
-                        MouseArea {
-                            id: nextMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                var proc = Qt.createQmlObject('import Quickshell.Io 1.0; Process { command: ["playerctl", "next"]; running: true }', dash);
-                                proc.destroy(1000);
-                            }
-                        }
-                    }
-                }
 
                 // Recording Dot
                 Rectangle {
