@@ -13,7 +13,7 @@ ShellRoot {
 
     readonly property var modeDimensions: ({
         "idle":       { width: 120, height: 30,  radius: 12 },
-        "hover":      { width: 560, height: 30,  radius: 12 },
+        "hover":      { width: 440, height: 30,  radius: 12 },
         "launcher":   { width: 460, height: 360, radius: 12 },
         "theme":      { width: 400, height: 250, radius: 12 },
         "wallpaper":  { width: 760, height: 320, radius: 12 },
@@ -22,16 +22,28 @@ ShellRoot {
         "wifi":       { width: 420, height: 380, radius: 12 }, 
         "bluetooth":  { width: 400, height: 360, radius: 12 },
         "recorder":   { width: 380, height: 225, radius: 12 },
-        "battery":    { width: 380, height: 188, radius: 12 }
+        "battery":    { width: 380, height: 188, radius: 12 },
+        "powermenu":  { width: 342, height: 78,  radius: 14 },
+        "calendar":   { width: 320, height: 280, radius: 12 }
     })
 
     property string activeMode: "idle"
+    property string previousExpandedMode: "launcher"
     property bool isWorkspacePeeking: false
     property bool isScreenRecording: false
+    property bool openedViaShortcut: false
 
-    function switchMode(newMode) {
+    readonly property bool isDashMode: activeMode === "idle" || activeMode === "hover"
+
+    function switchMode(newMode, fromShortcut = false) {
         root.isWorkspacePeeking = false;
-        root.activeMode = (root.activeMode === newMode) ? "idle" : newMode;
+        if (root.activeMode === newMode) {
+            root.activeMode = "idle";
+            root.openedViaShortcut = false;
+        } else {
+            root.openedViaShortcut = fromShortcut;
+            root.activeMode = newMode;
+        }
     }
 
     function regainFocus() {
@@ -42,7 +54,13 @@ ShellRoot {
     }
 
     onActiveModeChanged: {
-        if (activeMode === "wifi") {
+        if (activeMode !== "idle" && activeMode !== "hover" && activeMode !== "osd") {
+            root.previousExpandedMode = activeMode;
+        }
+
+        if (activeMode === "idle") {
+            root.openedViaShortcut = false;
+        } else if (activeMode === "wifi") {
             wifiMod.activeTab = "wifi";
             wifiMod.refreshStatus();
         } else if (activeMode === "bluetooth" && typeof Bluetooth !== "undefined" && Bluetooth.defaultAdapter) {
@@ -65,6 +83,8 @@ ShellRoot {
     }
     
     readonly property int targetHeight: {
+        if (activeMode === "calendar") return 280;
+        if (activeMode === "powermenu") return 78;
         if (activeMode === "battery") return 188;
         if (activeMode === "recorder") {
             if (typeof recMod === "undefined") return 225;
@@ -148,7 +168,7 @@ ShellRoot {
         onTriggered: {
             if (root.isWorkspacePeeking) {
                 root.isWorkspacePeeking = false;
-                if (root.activeMode === "hover" && !notchHoverMouse.containsMouse) root.activeMode = "idle";
+                if (root.activeMode === "hover" && !notchHoverHandler.hovered) root.activeMode = "idle";
             }
         }
     }
@@ -168,14 +188,39 @@ ShellRoot {
         }
     }
 
-    GlobalShortcut { name: "toggleNotchLauncher"; onPressed: root.switchMode("launcher") }
-    GlobalShortcut { name: "toggleThemeNotch"; onPressed: root.switchMode("theme") }
-    GlobalShortcut { name: "toggleWallpaperNotch"; onPressed: root.switchMode("wallpaper") }
-    GlobalShortcut { name: "toggleTransitionNotch"; onPressed: root.switchMode("transition") }
+    // Global Shortcuts
+    GlobalShortcut { name: "toggleNotchLauncher"; onPressed: root.switchMode("launcher", true) }
+    GlobalShortcut { name: "toggleThemeNotch"; onPressed: root.switchMode("theme", true) }
+    GlobalShortcut { name: "toggleWallpaperNotch"; onPressed: root.switchMode("wallpaper", true) }
+    GlobalShortcut { name: "toggleTransitionNotch"; onPressed: root.switchMode("transition", true) }
     GlobalShortcut { name: "resetNotchToIdle"; onPressed: root.activeMode = "idle" }
-    GlobalShortcut { name: "toggleRecorderNotch"; onPressed: root.switchMode("recorder") }
+    GlobalShortcut { name: "toggleRecorderNotch"; onPressed: root.switchMode("recorder", true) }
+    GlobalShortcut { name: "togglePowerMenuNotch"; onPressed: root.switchMode("powermenu", true) }
+    GlobalShortcut { name: "toggleCalendarNotch"; onPressed: root.switchMode("calendar", true) }
 
-    // Window Shell
+    // Invisible Fullscreen Backdrop
+    PanelWindow {
+        id: backdropPanel
+        visible: root.openedViaShortcut && root.activeMode !== "idle"
+        anchors.top: true
+        anchors.bottom: true
+        anchors.left: true
+        anchors.right: true
+        exclusiveZone: 0
+        color: "transparent"
+        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {
+                root.activeMode = "idle";
+                root.openedViaShortcut = false;
+            }
+        }
+    }
+
+    // Main Notch Panel
     PanelWindow {
         id: panel
         anchors.top: true
@@ -183,8 +228,8 @@ ShellRoot {
         implicitHeight: 520
         exclusiveZone: 30
         color: "transparent"
+        WlrLayershell.layer: WlrLayer.Overlay
 
-        // Restricts click capture strictly to the active notch rectangle + wings
         mask: Region {
             item: notchContainer
         }
@@ -204,6 +249,7 @@ ShellRoot {
             Keys.onPressed: (event) => {
                 if (event.key === Qt.Key_Escape) {
                     root.activeMode = "idle";
+                    root.openedViaShortcut = false;
                     event.accepted = true;
                 } else {
                     root.regainFocus();
@@ -269,56 +315,97 @@ ShellRoot {
                 Behavior on width  { NumberAnimation { duration: 180; easing.type: Easing.OutQuad } }
                 Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutQuad } }
 
-                StackLayout {
-                    id: contentStack
-                    anchors.fill: parent
-                    anchors.margins: root.activeMode === "idle" || root.activeMode === "hover" ? 0 : 12
+                // 1. Persistent Dash Layer (Fades in when returning to idle/hover, fades out on expansion)
+                Item {
+                    id: dashContainer
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: 30
+                    z: 5
 
-                    opacity: (root.activeMode === "idle" || root.activeMode === "hover" || notch.height > 80) ? 1.0 : 0.0
-                    Behavior on opacity { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                    opacity: root.isDashMode ? 1.0 : 0.0
+                    visible: opacity > 0.01
+                    Behavior on opacity { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
 
-                    currentIndex: {
-                        switch(root.activeMode) {
-                            case "idle":       return 0;
-                            case "hover":      return 0;
-                            case "launcher":   return 1;
-                            case "theme":      return 2;
-                            case "wallpaper":  return 3;
-                            case "transition": return 4;
-                            case "osd":        return 5;
-                            case "bluetooth":  return 6;
-                            case "wifi":       return 7;
-                            case "recorder":   return 8;
-                            case "battery":    return 9;
-                            default:           return 0;
-                        }
+                    MainDash { 
+                        id: dashMod 
+                        anchors.fill: parent
                     }
-
-                    MainDash           { id: dashMod }
-                    Launcher           { id: launcherMod }
-                    ThemeSelector      { id: themeMod }
-                    WallpaperSelector  { id: wallMod }
-                    TransitionSelector { id: transMod }
-                    Osd                { id: osdMod }
-                    BluetoothModule    { id: btMod }
-                    WifiModule         { id: wifiMod }
-                    RecorderModule     { id: recMod }
-                    BatteryModule      { id: battMod }
                 }
 
-                MouseArea {
-                    id: notchHoverMouse
+                // 2. Expanded Modules Container (Fast cross-fade on open/close without layout snapping)
+                Item {
+                    id: modulesContainer
                     anchors.fill: parent
-                    hoverEnabled: true
-                    acceptedButtons: Qt.NoButton
-                    enabled: root.activeMode === "idle" || root.activeMode === "hover"
-                    
-                    onEntered: {
-                        root.isWorkspacePeeking = false;
-                        if (root.activeMode === "idle") root.activeMode = "hover";
+                    anchors.margins: 12
+                    z: 1
+
+                    opacity: (!root.isDashMode && notch.height > 60) ? 1.0 : 0.0
+                    visible: opacity > 0.01
+                    Behavior on opacity { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+
+                    StackLayout {
+                        id: contentStack
+                        anchors.fill: parent
+
+                        currentIndex: {
+                            var mode = root.isDashMode ? root.previousExpandedMode : root.activeMode;
+                            switch(mode) {
+                                case "launcher":   return 0;
+                                case "theme":      return 1;
+                                case "wallpaper":  return 2;
+                                case "transition": return 3;
+                                case "osd":        return 4;
+                                case "bluetooth":  return 5;
+                                case "wifi":       return 6;
+                                case "recorder":   return 7;
+                                case "battery":    return 8;
+                                case "powermenu":  return 9;
+                                case "calendar":   return 10;
+                                default:           return 0;
+                            }
+                        }
+
+                        Launcher           { id: launcherMod }
+                        ThemeSelector      { id: themeMod }
+                        WallpaperSelector  { id: wallMod }
+                        TransitionSelector { id: transMod }
+                        Osd                { id: osdMod }
+                        BluetoothModule    { id: btMod }
+                        WifiModule         { id: wifiMod }
+                        RecorderModule     { id: recMod }
+                        BatteryModule      { id: battMod }
+                        PowerMenu          { id: powerMod }
+                        CalendarModule     { id: calMod }
                     }
-                    onExited: {
-                        if (root.activeMode === "hover" && !root.isWorkspacePeeking) root.activeMode = "idle";
+                }
+
+                Timer {
+                    id: autoCollapseTimer
+                    interval: 60
+                    repeat: false
+                    onTriggered: {
+                        if (root.openedViaShortcut) return;
+                        if (!notchHoverHandler.hovered && root.activeMode !== "idle" && root.activeMode !== "osd" && !root.isWorkspacePeeking) {
+                            root.activeMode = "idle";
+                        }
+                    }
+                }
+
+                HoverHandler {
+                    id: notchHoverHandler
+                    enabled: root.activeMode !== "osd"
+                    onHoveredChanged: {
+                        if (hovered) {
+                            autoCollapseTimer.stop();
+                            root.isWorkspacePeeking = false;
+                            if (root.activeMode === "idle") root.activeMode = "hover";
+                        } else {
+                            if (!root.openedViaShortcut) {
+                                autoCollapseTimer.restart();
+                            }
+                        }
                     }
                 }
             }

@@ -8,7 +8,7 @@ Item {
     id: dash
     Layout.fillWidth: true
     Layout.fillHeight: true
-    implicitWidth: 560
+    implicitWidth: 440
 
     RowLayout {
         id: dashRow
@@ -57,17 +57,12 @@ Item {
 
         Item { Layout.fillWidth: true; Layout.minimumWidth: 10 }
 
-        // Date & Time + Recording Dot
-        Rectangle {
+        // Date & Time (Seamless plain-text click area without button styling)
+        Item {
             Layout.alignment: Qt.AlignCenter
             width: timeRow.implicitWidth + (root.isScreenRecording ? 32 : 24)
             implicitWidth: width
             height: 26
-            radius: 8
-            color: timeMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
-            border.width: timeMouse.containsMouse ? 1 : 0
-            border.color: Theme.colors.border_hover ?? "#7aa2f7"
-            Behavior on color { ColorAnimation { duration: 80 } }
 
             Row {
                 id: timeRow
@@ -103,13 +98,19 @@ Item {
                     }
                 }
             }
+
             MouseArea {
                 id: timeMouse
                 anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
+                hoverEnabled: root.activeMode === "hover"
+                enabled: root.activeMode === "hover"
+                cursorShape: root.activeMode === "hover" ? Qt.PointingHandCursor : Qt.ArrowCursor
                 onClicked: {
-                    if (root.isScreenRecording) root.switchMode("recorder");
+                    if (root.isScreenRecording) {
+                        root.switchMode("recorder");
+                    } else if (root.activeMode === "hover") {
+                        root.switchMode("calendar");
+                    }
                 }
             }
         }
@@ -180,71 +181,38 @@ Item {
 
             // Battery
             Rectangle {
-				width: battRow.implicitWidth + 16; height: 26; radius: 8
-				color: battMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
-				border.width: battMouse.containsMouse ? 1 : 0
-				border.color: Theme.colors.border_hover ?? "#7aa2f7"
-
-				Row {
-					id: battRow
-					anchors.centerIn: parent
-					spacing: 6
-					property int batteryLevel: typeof battMod !== "undefined" ? battMod.batteryLevel : 100
-					property bool isCharging: typeof battMod !== "undefined" ? battMod.isCharging : false
-
-					Text {
-						anchors.verticalCenter: parent.verticalCenter
-						text: parent.isCharging ? "󰂄" : (parent.batteryLevel > 20 ? "󰁹" : "󰂃")
-						font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 15
-						color: parent.isCharging || parent.batteryLevel > 20 ? (Theme.colors.accent ?? "#7aa2f7") : "#f44336"
-					}
-					Text {
-						anchors.verticalCenter: parent.verticalCenter
-						text: parent.batteryLevel + "%"
-						color: Theme.colors.text_primary ?? "white"
-						font.pixelSize: 12; font.bold: true; font.features: { "tnum": 1 }
-					}
-				}
-				MouseArea { 
-					id: battMouse
-					anchors.fill: parent
-					hoverEnabled: true
-					cursorShape: Qt.PointingHandCursor
-					onClicked: root.switchMode("battery")
-				}
-			}
-
-            Item {
-                width: 12; height: 26
-                Rectangle { anchors.centerIn: parent; width: 1; height: 14; color: Theme.colors.text_secondary ?? "#565f89"; opacity: 0.4 }
-            }
-
-            // Power Buttons
-            Rectangle {
-                width: 26; height: 26; radius: 8
-                color: suspMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
-                border.width: suspMouse.containsMouse ? 1 : 0
+                width: battRow.implicitWidth + 16; height: 26; radius: 8
+                color: battMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
+                border.width: battMouse.containsMouse ? 1 : 0
                 border.color: Theme.colors.border_hover ?? "#7aa2f7"
-                Text { anchors.centerIn: parent; text: "󰒲"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 15; color: suspMouse.containsMouse ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.text_secondary ?? "#565f89") }
-                MouseArea { id: suspMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Quickshell.execDetached(["systemctl", "suspend"]) }
-            }
 
-            Rectangle {
-                width: 26; height: 26; radius: 8
-                color: rebtMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
-                border.width: rebtMouse.containsMouse ? 1 : 0
-                border.color: Theme.colors.border_hover ?? "#7aa2f7"
-                Text { anchors.centerIn: parent; text: "󰜉"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 15; color: rebtMouse.containsMouse ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.text_secondary ?? "#565f89") }
-                MouseArea { id: rebtMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Quickshell.execDetached(["systemctl", "reboot"]) }
-            }
+                Row {
+                    id: battRow
+                    anchors.centerIn: parent
+                    spacing: 6
+                    property int batteryLevel: typeof battMod !== "undefined" ? battMod.batteryLevel : 100
+                    property bool isCharging: typeof battMod !== "undefined" ? battMod.isCharging : false
 
-            Rectangle {
-                width: 26; height: 26; radius: 8
-                color: shutMouse.containsMouse ? "#f44336" : "transparent"
-                border.width: shutMouse.containsMouse ? 1 : 0
-                border.color: "#f44336"
-                Text { anchors.centerIn: parent; text: "󰐥"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 15; color: shutMouse.containsMouse ? "white" : (Theme.colors.text_secondary ?? "#565f89") }
-                MouseArea { id: shutMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Quickshell.execDetached(["systemctl", "poweroff"]) }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: parent.isCharging ? "󰂄" : (parent.batteryLevel > 20 ? "󰁹" : "󰂃")
+                        font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 15
+                        color: parent.isCharging || parent.batteryLevel > 20 ? (Theme.colors.accent ?? "#7aa2f7") : "#f44336"
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: parent.batteryLevel + "%"
+                        color: Theme.colors.text_primary ?? "white"
+                        font.pixelSize: 12; font.bold: true; font.features: { "tnum": 1 }
+                    }
+                }
+                MouseArea {
+                    id: battMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.switchMode("battery")
+                }
             }
         }
     }

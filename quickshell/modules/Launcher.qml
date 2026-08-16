@@ -193,16 +193,17 @@ print('\\n'.join(sorted(set(apps))))
             }
 
             MouseArea {
-                id: appMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                onEntered: appList.currentIndex = index
-                onClicked: {
-                    appRunner.command = ["sh", "-c", appExec + " &"];
-                    appRunner.running = true;
-                    root.activeMode = "idle";
-                }
-            }
+				id: appMouse
+				anchors.fill: parent
+				hoverEnabled: true
+				cursorShape: Qt.PointingHandCursor
+				onEntered: appList.currentIndex = index
+				onClicked: {
+					appRunner.command = ["sh", "-c", appExec + " &"];
+					appRunner.running = true;
+					root.activeMode = "idle";
+				}
+			}
         }
     }
 }

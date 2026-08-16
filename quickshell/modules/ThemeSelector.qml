@@ -88,13 +88,15 @@ ColumnLayout {
                     font.pixelSize: 14; font.bold: true
                 }
 
-                MouseArea {
-                    id: themeMouse
-                    anchors.fill: parent; hoverEnabled: true
-                    onEntered: themeList.currentIndex = index
-                    onClicked: themeList.applyTheme(index)
-                }
-            }
+				MouseArea {
+					id: themeMouse
+					anchors.fill: parent
+					hoverEnabled: true
+					cursorShape: Qt.PointingHandCursor
+					onEntered: themeList.currentIndex = index
+					onClicked: themeList.applyTheme(index)
+				}   
+			}
         }
     }
 }

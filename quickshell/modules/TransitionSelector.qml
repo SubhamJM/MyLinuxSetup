@@ -86,13 +86,14 @@ ColumnLayout {
                     font.bold: true
                 }
 
-                MouseArea {
-                    id: transMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onEntered: transitionGrid.currentIndex = index
-                    onClicked: transitionGrid.applyTransition(index)
-                }
+				MouseArea {
+					id: transMouse
+					anchors.fill: parent
+					hoverEnabled: true
+					cursorShape: Qt.PointingHandCursor
+					onEntered: transitionGrid.currentIndex = index
+					onClicked: transitionGrid.applyTransition(index)
+				}
             }
         }
     }

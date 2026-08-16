@@ -478,7 +478,8 @@ ColumnLayout {
                                 enabled: !isCurrentlyConnecting
                                 Text { anchors.centerIn: parent; text: "✕"; color: Theme.colors.text_secondary ?? "#565f89"; font.pixelSize: 11 }
                                 MouseArea {
-                                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
                                     onClicked: {
                                         wifiModel.setProperty(index, "showPassword", false);
                                         wifiModel.setProperty(index, "hasError", false);
