@@ -13,7 +13,7 @@ ShellRoot {
 
     readonly property var modeDimensions: ({
         "idle":       { width: 120, height: 30,  radius: 12 },
-        "hover":      { width: 440, height: 30,  radius: 12 },
+        "hover":      { width: 460, height: 30,  radius: 12 },
         "launcher":   { width: 460, height: 360, radius: 12 },
         "theme":      { width: 400, height: 250, radius: 12 },
         "wallpaper":  { width: 760, height: 320, radius: 12 },
