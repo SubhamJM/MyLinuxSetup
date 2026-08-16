@@ -53,6 +53,7 @@ ShellRoot {
         else if (activeMode === "wallpaper") wallMod.wallpaperGrid.forceActiveFocus();
         else if (activeMode === "transition") transMod.transitionGrid.forceActiveFocus();
         else if (activeMode === "clipboard" && typeof clipMod !== "undefined") clipMod.searchInput.forceActiveFocus();
+        else if (activeMode === "powermenu" && typeof powerMod !== "undefined") powerMod.forceActiveFocus();
     }
 
     onActiveModeChanged: {
@@ -207,27 +208,7 @@ ShellRoot {
     GlobalShortcut { name: "toggleCalendarNotch"; onPressed: root.switchMode("calendar", true) }
     GlobalShortcut { name: "toggleClipboardNotch"; onPressed: root.switchMode("clipboard", true) }
 
-    // Invisible Fullscreen Backdrop
-    PanelWindow {
-        id: backdropPanel
-        visible: root.openedViaShortcut && root.activeMode !== "idle"
-        anchors.top: true
-        anchors.bottom: true
-        anchors.left: true
-        anchors.right: true
-        exclusiveZone: 0
-        color: "transparent"
-        WlrLayershell.layer: WlrLayer.Top
-        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
-        MouseArea {
-            anchors.fill: parent
-            onClicked: {
-                root.activeMode = "idle";
-                root.openedViaShortcut = false;
-            }
-        }
-    }
 
     // Main Notch Panel
     PanelWindow {
@@ -244,8 +225,15 @@ ShellRoot {
         }
 
         WlrLayershell.keyboardFocus: (root.activeMode !== "idle" && root.activeMode !== "hover" && root.activeMode !== "osd") 
-            ? WlrKeyboardFocus.Exclusive 
+            ? WlrKeyboardFocus.OnDemand 
             : WlrKeyboardFocus.None
+
+        onActiveFocusChanged: {
+            if (!activeFocus && root.activeMode !== "idle" && root.activeMode !== "hover" && root.activeMode !== "osd" && root.activeMode !== "wifi" && root.activeMode !== "bluetooth" && root.activeMode !== "battery") {
+                root.activeMode = "idle";
+                root.openedViaShortcut = false;
+            }
+        }
 
         Item {
             id: notchContainer
@@ -304,6 +292,22 @@ ShellRoot {
                     ctx.moveTo(-1, 0); ctx.lineTo(-1, height);
                     ctx.arcTo(0, 0, width, 0, height);
                     ctx.closePath(); ctx.fill();
+                }
+            }
+
+            MouseArea {
+                id: extendedHoverArea
+                anchors.fill: notch
+                anchors.margins: -20
+                hoverEnabled: true
+                acceptedButtons: Qt.NoButton
+                enabled: root.activeMode === "wifi" || root.activeMode === "bluetooth" || root.activeMode === "battery"
+                onContainsMouseChanged: {
+                    if (containsMouse) {
+                        autoCollapseTimer.stop();
+                    } else if (!notchHoverHandler.hovered && !root.openedViaShortcut) {
+                        autoCollapseTimer.restart();
+                    }
                 }
             }
 
@@ -403,7 +407,7 @@ ShellRoot {
                     repeat: false
                     onTriggered: {
                         if (root.openedViaShortcut) return;
-                        if (!notchHoverHandler.hovered && root.activeMode !== "idle" && root.activeMode !== "osd" && !root.isWorkspacePeeking) {
+                        if (!notchHoverHandler.hovered && (!extendedHoverArea.enabled || !extendedHoverArea.containsMouse) && root.activeMode !== "idle" && root.activeMode !== "osd" && !root.isWorkspacePeeking) {
                             root.activeMode = "idle";
                         }
                     }
@@ -418,7 +422,7 @@ ShellRoot {
                             root.isWorkspacePeeking = false;
                             if (root.activeMode === "idle") root.activeMode = "hover";
                         } else {
-                            if (!root.openedViaShortcut) {
+                            if (!root.openedViaShortcut && (!extendedHoverArea.enabled || !extendedHoverArea.containsMouse)) {
                                 autoCollapseTimer.restart();
                             }
                         }

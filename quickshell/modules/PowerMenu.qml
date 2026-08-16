@@ -9,9 +9,30 @@ RowLayout {
     anchors.fill: parent
     spacing: 12
 
+    property int currentIndex: 1
+    
+    Keys.onLeftPressed: { currentIndex = (currentIndex - 1 + 5) % 5; }
+    Keys.onRightPressed: { currentIndex = (currentIndex + 1) % 5; }
+    Keys.onReturnPressed: { triggerSelected(); }
+    Keys.onSpacePressed: { triggerSelected(); }
+    
+    function triggerSelected() {
+        var cmds = [
+            "pidof hyprlock || hyprlock || swaylock || loginctl lock-session",
+            "systemctl suspend",
+            "hyprctl dispatch exit || loginctl terminate-user $USER",
+            "systemctl reboot",
+            "systemctl poweroff"
+        ];
+        Quickshell.execDetached(["sh", "-c", cmds[currentIndex]]);
+        root.activeMode = "idle";
+    }
+
     // Hold Button Component
     component HoldButton: Rectangle {
         id: btnRoot
+        property int btnIndex: -1
+        property bool isFocused: powerMenu.currentIndex === btnIndex
         property string iconText: ""
         property string actionCmd: ""
         property color iconColor: Theme.colors.text_primary ?? "#c0caf5"
@@ -22,9 +43,9 @@ RowLayout {
         Layout.preferredHeight: 54
         Layout.alignment: Qt.AlignVCenter
         radius: 12
-        color: holdMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : (Theme.colors.card_bg ?? "#1f2335")
+        color: holdMouse.containsMouse || isFocused ? (Theme.colors.hover_bg ?? "#24283b") : (Theme.colors.card_bg ?? "#1f2335")
         border.width: 1
-        border.color: holdMouse.pressed ? activeColor : (holdMouse.containsMouse ? (Theme.colors.border_hover ?? "#7aa2f7") : (Theme.colors.border ?? "#16161e"))
+        border.color: holdMouse.pressed ? activeColor : ((holdMouse.containsMouse || isFocused) ? activeColor : (Theme.colors.border ?? "#16161e"))
 
         opacity: root.activeMode === "powermenu" ? 1.0 : 0.0
         transform: Translate {
@@ -83,7 +104,7 @@ RowLayout {
             text: btnRoot.iconText
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 22
-            color: holdMouse.pressed ? btnRoot.activeColor : btnRoot.iconColor
+            color: holdMouse.pressed || btnRoot.isFocused ? btnRoot.activeColor : btnRoot.iconColor
             scale: holdMouse.pressed ? 0.92 : 1.0
             Behavior on scale { NumberAnimation { duration: 100 } }
         }
@@ -111,6 +132,7 @@ RowLayout {
 
     // 1. Lock Screen
     HoldButton {
+        btnIndex: 0
         iconText: "󰌾"
         actionCmd: "pidof hyprlock || hyprlock || swaylock || loginctl lock-session"
         activeColor: Theme.colors.accent ?? "#7aa2f7"
@@ -118,6 +140,7 @@ RowLayout {
 
     // 2. Sleep / Suspend
     HoldButton {
+        btnIndex: 1
         iconText: "󰒲"
         actionCmd: "systemctl suspend"
         activeColor: "#e0af68"
@@ -125,6 +148,7 @@ RowLayout {
 
     // 3. Logout
     HoldButton {
+        btnIndex: 2
         iconText: "󰍃"
         actionCmd: "hyprctl dispatch exit || loginctl terminate-user $USER"
         activeColor: "#bb9af7"
@@ -132,6 +156,7 @@ RowLayout {
 
     // 4. Reboot
     HoldButton {
+        btnIndex: 3
         iconText: "󰜉"
         actionCmd: "systemctl reboot"
         activeColor: "#7dcfff"
@@ -139,6 +164,7 @@ RowLayout {
 
     // 5. Power Off
     HoldButton {
+        btnIndex: 4
         iconText: "󰐥"
         actionCmd: "systemctl poweroff"
         activeColor: "#f44336"

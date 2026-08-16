@@ -8,7 +8,7 @@ Item {
     id: dash
     Layout.fillWidth: true
     Layout.fillHeight: true
-    implicitWidth: 440
+    implicitWidth: Math.max(440, dashRow.implicitWidth + 24)
 
     RowLayout {
         id: dashRow
@@ -195,7 +195,17 @@ Item {
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: parent.isCharging ? "󰂄" : (parent.batteryLevel > 20 ? "󰁹" : "󰂃")
+                        text: {
+                            if (parent.isCharging) return "󰂄";
+                            var lvl = parent.batteryLevel;
+                            if (lvl <= 15) return "󰁺";
+                            if (lvl <= 30) return "󰁻";
+                            if (lvl <= 45) return "󰁼";
+                            if (lvl <= 60) return "󰁽";
+                            if (lvl <= 75) return "󰁾";
+                            if (lvl <= 90) return "󰂀";
+                            return "󰁹";
+                        }
                         font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 15
                         color: parent.isCharging || parent.batteryLevel > 20 ? (Theme.colors.accent ?? "#7aa2f7") : "#f44336"
                     }

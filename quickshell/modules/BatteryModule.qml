@@ -149,7 +149,17 @@ print(f'{cap}|||{status}|||{e_now:.1f}|||{e_full:.1f}|||{e_design:.1f}|||{health
                 anchors.centerIn: parent
                 spacing: 4
                 Text {
-                    text: batteryModule.isCharging ? "󱐋" : "󰁹"
+                    text: {
+                        if (batteryModule.isCharging) return "󱐋";
+                        var lvl = batteryModule.batteryLevel;
+                        if (lvl <= 15) return "󰁺";
+                        if (lvl <= 30) return "󰁻";
+                        if (lvl <= 45) return "󰁼";
+                        if (lvl <= 60) return "󰁽";
+                        if (lvl <= 75) return "󰁾";
+                        if (lvl <= 90) return "󰂀";
+                        return "󰁹";
+                    }
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 12
                     color: batteryModule.isCharging ? (Theme.colors.bg ?? "#16161e") : (Theme.colors.accent ?? "#7aa2f7")
