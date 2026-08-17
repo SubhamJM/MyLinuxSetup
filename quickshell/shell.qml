@@ -25,7 +25,8 @@ ShellRoot {
         "battery":    { width: 380, height: 188, radius: 12 },
         "powermenu":  { width: 342, height: 78,  radius: 14 },
         "calendar":   { width: 320, height: 280, radius: 12 },
-        "clipboard":  { width: 460, height: 380, radius: 12 }
+        "clipboard":  { width: 460, height: 380, radius: 12 },
+        "shelf":      { width: 460, height: 380, radius: 12 }
     })
 
     property string activeMode: "idle"
@@ -36,11 +37,16 @@ ShellRoot {
 
     readonly property bool isDashMode: activeMode === "idle" || activeMode === "hover"
 
+    function collapseToIdle() {
+        root.isWorkspacePeeking = false;
+        root.openedViaShortcut = false;
+        root.activeMode = "idle";
+    }
+
     function switchMode(newMode, fromShortcut = false) {
         root.isWorkspacePeeking = false;
         if (root.activeMode === newMode) {
-            root.activeMode = "idle";
-            root.openedViaShortcut = false;
+            root.collapseToIdle();
         } else {
             root.openedViaShortcut = fromShortcut;
             root.activeMode = newMode;
@@ -53,6 +59,7 @@ ShellRoot {
         else if (activeMode === "wallpaper") wallMod.wallpaperGrid.forceActiveFocus();
         else if (activeMode === "transition") transMod.transitionGrid.forceActiveFocus();
         else if (activeMode === "clipboard" && typeof clipMod !== "undefined") clipMod.searchInput.forceActiveFocus();
+        else if (activeMode === "shelf" && typeof shelfMod !== "undefined") shelfMod.forceShelfFocus();
         else if (activeMode === "powermenu" && typeof powerMod !== "undefined") powerMod.forceActiveFocus();
     }
 
@@ -76,6 +83,7 @@ ShellRoot {
             root.regainFocus();
             if (activeMode !== "launcher") launcherMod.searchInput.text = "";
             if (activeMode !== "clipboard" && typeof clipMod !== "undefined") clipMod.searchInput.text = "";
+            if (activeMode !== "shelf" && typeof shelfMod !== "undefined") shelfMod.searchInput.text = "";
         });
     }
 
@@ -90,6 +98,11 @@ ShellRoot {
         if (activeMode === "calendar") return 280;
         if (activeMode === "powermenu") return 78;
         if (activeMode === "battery") return 188;
+        if (activeMode === "shelf") {
+            if (typeof shelfMod === "undefined" || shelfMod.calculatedCount === 0) return 220;
+            var shelfCalcH = 66 + (shelfMod.calculatedCount * 48);
+            return Math.min(440, Math.max(180, shelfCalcH));
+        }
         if (activeMode === "clipboard") {
             if (typeof clipMod === "undefined" || clipMod.calculatedCount === 0) return 220;
             var clipCalcH = 66 + (clipMod.calculatedCount * 48);
@@ -156,7 +169,7 @@ ShellRoot {
     }
 
     Timer { id: osdSettleTimer; interval: 150; onTriggered: root.osdReady = true }
-    Timer { id: osdHideTimer; interval: 2000; onTriggered: { if (root.activeMode === "osd") { root.activeMode = "idle"; root.osdReady = false; } } }
+    Timer { id: osdHideTimer; interval: 2000; onTriggered: { if (root.activeMode === "osd") { root.collapseToIdle(); root.osdReady = false; } } }
     
     Process {
         id: osdFileReader
@@ -184,7 +197,7 @@ ShellRoot {
         onTriggered: {
             if (root.isWorkspacePeeking) {
                 root.isWorkspacePeeking = false;
-                if (root.activeMode === "hover" && !notchHoverHandler.hovered) root.activeMode = "idle";
+                if (root.activeMode === "hover" && !notchHoverHandler.hovered) root.collapseToIdle();
             }
         }
     }
@@ -209,14 +222,13 @@ ShellRoot {
     GlobalShortcut { name: "toggleThemeNotch"; onPressed: root.switchMode("theme", true) }
     GlobalShortcut { name: "toggleWallpaperNotch"; onPressed: root.switchMode("wallpaper", true) }
     GlobalShortcut { name: "toggleTransitionNotch"; onPressed: root.switchMode("transition", true) }
-    GlobalShortcut { name: "resetNotchToIdle"; onPressed: root.activeMode = "idle" }
+    GlobalShortcut { name: "resetNotchToIdle"; onPressed: root.collapseToIdle() }
     GlobalShortcut { name: "toggleRecorderNotch"; onPressed: root.switchMode("recorder", true) }
     GlobalShortcut { name: "togglePowerMenuNotch"; onPressed: root.switchMode("powermenu", true) }
     GlobalShortcut { name: "toggleCalendarNotch"; onPressed: root.switchMode("calendar", true) }
     GlobalShortcut { name: "toggleClipboardNotch"; onPressed: root.switchMode("clipboard", true) }
+    GlobalShortcut { name: "toggleShelfNotch"; onPressed: root.switchMode("shelf", true) }
     GlobalShortcut { name: "toggleMusicInfoNotch"; onPressed: if (typeof dashMod !== "undefined") dashMod.showMusicInfo = !dashMod.showMusicInfo }
-
-
 
     // Main Notch Panel
     PanelWindow {
@@ -246,11 +258,32 @@ ShellRoot {
             focus: root.activeMode !== "idle" && root.activeMode !== "hover"
             Keys.onPressed: (event) => {
                 if (event.key === Qt.Key_Escape) {
-                    root.activeMode = "idle";
-                    root.openedViaShortcut = false;
+                    root.collapseToIdle();
                     event.accepted = true;
                 } else {
                     root.regainFocus();
+                }
+            }
+
+            DropArea {
+                id: notchDropArea
+                anchors.fill: parent
+                keys: ["text/uri-list"]
+
+                onEntered: (drag) => {
+                    if (drag.hasUrls) {
+                        if (root.activeMode !== "shelf") {
+                            root.switchMode("shelf", false);
+                        }
+                        drag.acceptProposedAction();
+                    }
+                }
+
+                onDropped: (drop) => {
+                    if (drop.hasUrls && typeof shelfMod !== "undefined") {
+                        shelfMod.addDroppedFiles(drop.urls);
+                        drop.acceptProposedAction();
+                    }
                 }
             }
 
@@ -302,7 +335,7 @@ ShellRoot {
                 anchors.margins: -20
                 hoverEnabled: true
                 acceptedButtons: Qt.NoButton
-                enabled: root.activeMode === "wifi" || root.activeMode === "bluetooth" || root.activeMode === "battery"
+                enabled: root.activeMode === "wifi" || root.activeMode === "bluetooth" || root.activeMode === "battery" || root.activeMode === "shelf"
                 onContainsMouseChanged: {
                     if (containsMouse) {
                         autoCollapseTimer.stop();
@@ -328,7 +361,7 @@ ShellRoot {
                 Behavior on width  { NumberAnimation { duration: 400; easing.type: Easing.OutExpo } }
                 Behavior on height { NumberAnimation { duration: 400; easing.type: Easing.OutExpo } }
 
-                // 1. Persistent Dash Layer (Fades in when returning to idle/hover, fades out on expansion)
+                // 1. Persistent Dash Layer
                 Item {
                     id: dashContainer
                     anchors.top: parent.top
@@ -347,7 +380,7 @@ ShellRoot {
                     }
                 }
 
-                // 2. Expanded Modules Container (Fast cross-fade on open/close without layout snapping)
+                // 2. Expanded Modules Container
                 Item {
                     id: modulesContainer
                     anchors.fill: parent
@@ -357,7 +390,6 @@ ShellRoot {
                     anchors.bottomMargin: root.activeMode === "osd" ? 6 : 12
                     z: 2
 
-                    // Allow OSD to become visible at lower heights
                     opacity: (!root.isDashMode && (notch.height > 35 || root.activeMode === "osd")) ? 1.0 : 0.0
                     visible: opacity > 0.001
                     enabled: !root.isDashMode
@@ -382,6 +414,7 @@ ShellRoot {
                                 case "powermenu":  return 9;
                                 case "calendar":   return 10;
                                 case "clipboard":  return 11;
+                                case "shelf":      return 12;
                                 default:           return 0;
                             }
                         }
@@ -398,6 +431,7 @@ ShellRoot {
                         PowerMenu          { id: powerMod }
                         CalendarModule     { id: calMod }
                         ClipboardModule    { id: clipMod }
+                        ShelfModule        { id: shelfMod }
                     }
                 }
 
@@ -408,7 +442,7 @@ ShellRoot {
                     onTriggered: {
                         if (root.openedViaShortcut) return;
                         if (!notchHoverHandler.hovered && (!extendedHoverArea.enabled || !extendedHoverArea.containsMouse) && root.activeMode !== "idle" && root.activeMode !== "osd" && !root.isWorkspacePeeking) {
-                            root.activeMode = "idle";
+                            root.collapseToIdle();
                         }
                     }
                 }
@@ -432,4 +466,3 @@ ShellRoot {
         }
     }
 }
-
