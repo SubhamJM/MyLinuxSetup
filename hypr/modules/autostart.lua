@@ -10,6 +10,8 @@ hl.on("hyprland.start", function ()
 	hl.exec_cmd("awww-daemon")
 	hl.exec_cmd("qs")
 	hl.exec_cmd("systemctl --user start hyprpolkitagent")
+	hl.exec_cmd("bash -c \"wl-paste --type text --watch cliphist store &\"")
+    hl.exec_cmd("bash -c \"wl-paste --type image --watch cliphist store &\"")
 	
 --  to make the things more stable....
 	hl.exec_cmd("gnome-keyring-daemon --start --components=secrets")

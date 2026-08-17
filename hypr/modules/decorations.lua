@@ -13,11 +13,11 @@ hl.config({
     },
     general = {
         -- Gaps and border
-        gaps_in = 4,
-        gaps_out = 6,
+        gaps_in = 8,
+        gaps_out = 10,
         gaps_workspaces = 50,
 
-        border_size = 1,
+        border_size = 0,
 
         col = {
             active_border = use_matugen and colors.primary or "rgba(0DB7D455)",
@@ -46,7 +46,7 @@ hl.config({
             special = false,
             new_optimizations = true,
             size = 10,
-            passes = 4,
+            passes = 3,
             brightness = 1,
             noise = 0.05,
             contrast = 0.89,
@@ -60,11 +60,9 @@ hl.config({
         shadow = {
             enabled = true,
             range = 20,
-            offset = {0, 2},
-            render_power = 10,
-            color = "rgba(00000020)"
-
-        },
+            render_power = 3,
+            color = "rgba(1a1a1aee)"
+		},
         -- Dim
         dim_inactive = true,
         dim_strength = 0.05,

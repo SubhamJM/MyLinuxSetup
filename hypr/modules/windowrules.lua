@@ -3,12 +3,6 @@
 -- ==================================================
 
 hl.window_rule({
-    name = "kitty-transparency",
-    match = { class = "kitty" },
-    opacity = "0.90 0.80"
-})
-
-hl.window_rule({
     name = "spotify-transparency",
     match = { class = "spotify" },
     opacity = "0.90 0.80"
@@ -20,11 +14,6 @@ hl.window_rule({
     suppress_event = "maximize"
 })
 
--- No shadow for tiled windows
-hl.window_rule({
-    match = { float = 0 },
-    no_shadow = true
-})
 
 
 -- ==================================================

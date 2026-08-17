@@ -84,3 +84,11 @@ hl.gesture({
     action = "fullscreen",
     scale = 1.5
 })
+
+hl.gesture({
+    fingers = 3,
+    direction = "horizontal",
+    action = "scroll_move"
+})
+
+

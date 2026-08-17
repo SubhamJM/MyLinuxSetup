@@ -35,6 +35,7 @@ hl.curve("stall", {
     type = "bezier",
     points = {{1, -0.1}, {0.7, 0.85}}
 })
+
 -- Configs
 -- windows
 hl.animation({
@@ -66,15 +67,15 @@ hl.animation({
 hl.animation({
     leaf = "windowsMove",
     enabled = true,
-    speed = 3,
-    bezier = "emphasizedDecel",
+    speed = 4.5,
+    bezier = "expressiveDefaultSpatial",
     style = "slide"
 })
 hl.animation({
     leaf = "border",
-    enabled = false,
-    speed = 10,
-    bezier = "emphasizedDecel"
+    enabled = true,
+    speed = 5,
+    bezier = "menu_decel"
 })
 hl.animation({
     leaf = "borderangle",
@@ -82,11 +83,15 @@ hl.animation({
 })
 hl.animation({
     leaf = "fadeSwitch",
-    enabled = false
+    enabled = true,
+    speed = 4.5,
+    bezier = "menu_decel"
 })
 hl.animation({
     leaf = "fadeDim",
-    enabled = false
+    enabled = true,
+    speed = 4.5,
+    bezier = "menu_decel"
 })
 
 -- layers
