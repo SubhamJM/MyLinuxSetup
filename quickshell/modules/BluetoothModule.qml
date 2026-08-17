@@ -8,8 +8,16 @@ import "../"
 ColumnLayout {
     id: btModule
     spacing: 10
-    
+
+    // NOTE: shell.qml reads btMod.filteredDevices and btMod.stateMap[mac].isExpanded
+    // directly to compute the notch height for "bluetooth" mode. Keep these two
+    // property names/shapes stable, and keep card heights at 48 / 84 (see delegate
+    // below) so root.targetHeight's math in shell.qml still lines up.
     property var stateMap: ({})
+
+    readonly property var adapter: typeof Bluetooth !== "undefined" ? Bluetooth.defaultAdapter : null
+    readonly property bool isEnabled: adapter ? adapter.enabled : false
+    readonly property bool isDiscovering: adapter ? adapter.discovering : false
 
     Process {
         id: btBatteryFetcher
@@ -28,7 +36,7 @@ ColumnLayout {
             }
         }
     }
-    
+
     function toggleExpand(mac) {
         var sm = Object.assign({}, btModule.stateMap);
         if (!sm[mac]) sm[mac] = { isExpanded: false, battery: "" };
@@ -40,6 +48,27 @@ ColumnLayout {
             btBatteryFetcher.command = ["sh", "-c", "bluetoothctl info " + mac];
             btBatteryFetcher.running = true;
         }
+    }
+
+    // Picks a device icon glyph from name/icon hints (from the popup design)
+    function iconFor(dev) {
+        var icon = (dev.device && dev.device.icon) ? dev.device.icon : "";
+        var name = dev.name.toLowerCase();
+        if (icon.includes("audio") || name.includes("bud") || name.includes("pod") || name.includes("headphone")) return "󰋋";
+        if (icon.includes("phone") || name.includes("phone")) return "󰄜";
+        if (icon.includes("computer") || name.includes("mac")) return "󰌢";
+        if (icon.includes("mouse") || name.includes("mouse")) return "󰍽";
+        if (icon.includes("keyboard") || name.includes("key")) return "󰌌";
+        return dev.connected ? "󰂱" : "󰂯";
+    }
+
+    function batteryIconFor(pct) {
+        if (pct >= 90) return "󰁹";
+        if (pct >= 80) return "󰂂";
+        if (pct >= 60) return "󰁿";
+        if (pct >= 40) return "󰁽";
+        if (pct >= 20) return "󰁻";
+        return "󰂎";
     }
 
     readonly property var filteredDevices: {
@@ -74,29 +103,62 @@ ColumnLayout {
         });
     }
 
-    // Current Connection Status (Dynamic Island style text block)
+    // ==========================================
+    // HEADER — status + enable/disable toggle
+    // ==========================================
     Rectangle {
-        Layout.fillWidth: true; height: 36; radius: 8
+        Layout.fillWidth: true; height: 44; radius: 10
         color: Theme.colors.hover_bg ?? "#24283b"
         border.width: 1; border.color: Theme.colors.border ?? "#16161e"
-        
+
         RowLayout {
-            anchors.fill: parent; anchors.margins: 8; spacing: 8
-            
-            Text {
-                text: (typeof dashMod !== "undefined" && dashMod.btConnected) ? "󰂱" : "󰂯"
-                font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 15
-                color: Theme.colors.accent ?? "#7aa2f7"
+            anchors.fill: parent; anchors.margins: 10; spacing: 10
+
+            Rectangle {
+                width: 28; height: 28; radius: 14
+                color: btModule.isEnabled ? Qt.rgba(1,1,1,0.08) : "transparent"
+                Text {
+                    anchors.centerIn: parent
+                    text: btModule.isEnabled ? "󰂯" : "󰂲"
+                    font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 16
+                    color: Theme.colors.accent ?? "#7aa2f7"
+                }
             }
+
             Text {
                 Layout.fillWidth: true
                 text: {
-                    if (typeof dashMod === "undefined") return "Bluetooth status";
-                    return dashMod.btConnected ? ("Bluetooth connected to " + dashMod.btDeviceName) : "Bluetooth disconnected";
+                    if (typeof dashMod !== "undefined" && dashMod.btConnected) return "Connected to " + dashMod.btDeviceName;
+                    return btModule.isEnabled ? "Ready to connect" : "Bluetooth is off";
                 }
                 font.pixelSize: 13; font.bold: true
                 color: Theme.colors.text_primary ?? "white"
                 elide: Text.ElideRight
+            }
+
+            // Toggle switch
+            Item {
+                implicitWidth: 40; implicitHeight: 22
+                Rectangle {
+                    anchors.fill: parent
+                    radius: height / 2
+                    color: btModule.isEnabled ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.card_bg ?? "#1f2335")
+                    border.width: btModule.isEnabled ? 0 : 1
+                    border.color: Theme.colors.border ?? "#16161e"
+                    Behavior on color { ColorAnimation { duration: 150 } }
+
+                    Rectangle {
+                        width: 16; height: 16; radius: 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: btModule.isEnabled ? parent.width - width - 3 : 3
+                        color: btModule.isEnabled ? (Theme.colors.bg ?? "#16161e") : (Theme.colors.text_secondary ?? "#565f89")
+                        Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                    }
+                }
+                MouseArea {
+                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                    onClicked: if (btModule.adapter) btModule.adapter.enabled = !btModule.adapter.enabled
+                }
             }
         }
     }
@@ -104,6 +166,7 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         spacing: 8
+        visible: btModule.isEnabled
 
         Text {
             text: "Bluetooth Devices"
@@ -113,23 +176,33 @@ ColumnLayout {
         }
 
         Item { Layout.fillWidth: true }
-        
+
         Rectangle {
-            width: 80; height: 28; radius: 8
-            color: typeof Bluetooth !== "undefined" && Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.discovering ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.card_bg ?? "#1f2335")
-            Text {
+            width: 84; height: 28; radius: 8
+            color: btModule.isDiscovering ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.card_bg ?? "#1f2335")
+            border.width: 1; border.color: Theme.colors.border ?? "#16161e"
+
+            RowLayout {
                 anchors.centerIn: parent
-                text: typeof Bluetooth !== "undefined" && Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.discovering ? "Scanning..." : "Scan"
-                color: typeof Bluetooth !== "undefined" && Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.discovering ? (Theme.colors.bg ?? "#16161e") : (Theme.colors.text_primary ?? "white")
-                font.bold: true; font.pixelSize: 12
+                spacing: 4
+                Text {
+                    text: "󰑓"
+                    font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13
+                    color: btModule.isDiscovering ? (Theme.colors.bg ?? "#16161e") : (Theme.colors.text_primary ?? "white")
+                    RotationAnimation on rotation {
+                        running: btModule.isDiscovering
+                        from: 0; to: 360; duration: 1000; loops: Animation.Infinite
+                    }
+                }
+                Text {
+                    text: btModule.isDiscovering ? "Scanning" : "Scan"
+                    color: btModule.isDiscovering ? (Theme.colors.bg ?? "#16161e") : (Theme.colors.text_primary ?? "white")
+                    font.bold: true; font.pixelSize: 12
+                }
             }
             MouseArea {
                 anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    if (typeof Bluetooth !== "undefined" && Bluetooth.defaultAdapter) {
-                        Bluetooth.defaultAdapter.discovering = !Bluetooth.defaultAdapter.discovering;
-                    }
-                }
+                onClicked: if (btModule.adapter) btModule.adapter.discovering = !btModule.adapter.discovering
             }
         }
     }
@@ -143,12 +216,23 @@ ColumnLayout {
 
         Item {
             anchors.fill: parent
-            visible: btModule.filteredDevices.length === 0
-            Text {
+            visible: !btModule.isEnabled || btModule.filteredDevices.length === 0
+            ColumnLayout {
                 anchors.centerIn: parent
-                text: typeof Bluetooth !== "undefined" && Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.discovering ? "Searching for devices..." : "No devices found"
-                color: Theme.colors.text_secondary ?? "#565f89"
-                font.pixelSize: 13
+                spacing: 6
+                Text {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: btModule.isEnabled ? "󰂯" : "󰂲"
+                    font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 28
+                    color: Theme.colors.border ?? "#16161e"
+                }
+                Text {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: !btModule.isEnabled ? "Bluetooth is disabled"
+                        : (btModule.isDiscovering ? "Searching for devices..." : "No devices found")
+                    color: Theme.colors.text_secondary ?? "#565f89"
+                    font.pixelSize: 13
+                }
             }
         }
 
@@ -157,7 +241,10 @@ ColumnLayout {
             width: ListView.view.width
             property bool isExpanded: btModule.stateMap[modelData.mac] ? btModule.stateMap[modelData.mac].isExpanded : false
             property string batteryLvl: btModule.stateMap[modelData.mac] ? btModule.stateMap[modelData.mac].battery : ""
-            
+            property int batteryPct: batteryLvl !== "" ? parseInt(batteryLvl) : -1
+
+            // Keep these exact values — shell.qml's targetHeight math for "bluetooth"
+            // mode assumes 48 collapsed / 84 expanded per card.
             height: isExpanded ? 84 : 48
             radius: 8
             color: Theme.colors.card_bg ?? "#1f2335"
@@ -180,31 +267,47 @@ ColumnLayout {
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 10
-                    
-                    Text {
-                        text: modelData.connected ? "󰂱" : "󰂯"
-                        font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 18
-                        color: modelData.connected ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.text_secondary ?? "#565f89")
+
+                    Rectangle {
+                        width: 28; height: 28; radius: 14
+                        color: modelData.connected ? Qt.rgba(1,1,1,0.08) : "transparent"
+                        Text {
+                            anchors.centerIn: parent
+                            text: btModule.iconFor(modelData)
+                            font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 16
+                            color: modelData.connected ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.text_secondary ?? "#565f89")
+                        }
                     }
-                    
+
                     Column {
                         Layout.fillWidth: true
                         spacing: 1
 
-                        RowLayout {
-                            spacing: 6
-                            Text {
-                                text: modelData.name
-                                color: modelData.connected ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.text_primary ?? "white")
-                                font.pixelSize: 13; font.bold: true
-                                elide: Text.ElideRight; Layout.maximumWidth: btCard.width - 150
-                            }
-                            Text { visible: batteryLvl !== ""; text: "• " + batteryLvl; font.pixelSize: 11; font.bold: true; color: Theme.colors.accent ?? "#7aa2f7" }
+                        Text {
+                            text: modelData.name
+                            color: modelData.connected ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.text_primary ?? "white")
+                            font.pixelSize: 13; font.bold: true
+                            elide: Text.ElideRight; width: btCard.width - 160
                         }
                         Text {
                             text: modelData.connected ? "Connected" : (modelData.paired ? "Paired" : "Available")
                             color: modelData.connected ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.text_secondary ?? "#565f89")
                             font.pixelSize: 11
+                        }
+                    }
+
+                    RowLayout {
+                        visible: batteryLvl !== ""
+                        spacing: 3
+                        Text {
+                            text: batteryLvl
+                            font.pixelSize: 11; font.bold: true
+                            color: (btCard.batteryPct >= 0 && btCard.batteryPct < 20) ? "#f44336" : (Theme.colors.accent ?? "#7aa2f7")
+                        }
+                        Text {
+                            text: btModule.batteryIconFor(btCard.batteryPct)
+                            font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14
+                            color: (btCard.batteryPct >= 0 && btCard.batteryPct < 20) ? "#f44336" : (Theme.colors.accent ?? "#7aa2f7")
                         }
                     }
 
@@ -220,11 +323,11 @@ ColumnLayout {
                     Rectangle {
                         Layout.fillWidth: true; Layout.preferredHeight: 26; radius: 6
                         color: modelData.connected ? "#f44336" : (Theme.colors.accent ?? "#7aa2f7")
-                        Text { 
+                        Text {
                             anchors.centerIn: parent
                             text: modelData.connected ? "Disconnect" : "Connect"
                             color: modelData.connected ? "white" : (Theme.colors.bg ?? "#16161e")
-                            font.bold: true; font.pixelSize: 11 
+                            font.bold: true; font.pixelSize: 11
                         }
                         MouseArea {
                             anchors.fill: parent; cursorShape: Qt.PointingHandCursor

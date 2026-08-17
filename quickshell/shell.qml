@@ -23,7 +23,7 @@ ShellRoot {
         "bluetooth":  { width: 400, height: 360, radius: 12 },
         "recorder":   { width: 380, height: 225, radius: 12 },
         "battery":    { width: 380, height: 188, radius: 12 },
-        "powermenu":  { width: 342, height: 78,  radius: 14 },
+        "powermenu":  { width: 440, height: 100,  radius: 14 },
         "calendar":   { width: 320, height: 280, radius: 12 },
         "clipboard":  { width: 460, height: 380, radius: 12 },
         "shelf":      { width: 460, height: 380, radius: 12 }
@@ -96,8 +96,8 @@ ShellRoot {
     
     readonly property int targetHeight: {
         if (activeMode === "calendar") return 280;
-        if (activeMode === "powermenu") return 78;
-        if (activeMode === "battery") return 188;
+        if (activeMode === "powermenu") return 100;
+        if (activeMode === "battery") return 165;
         if (activeMode === "shelf") {
             if (typeof shelfMod === "undefined" || shelfMod.calculatedCount === 0) return 220;
             var shelfCalcH = 66 + (shelfMod.calculatedCount * 48);
@@ -132,18 +132,12 @@ ShellRoot {
             return Math.min(486, Math.max(246, 112 + listItemsHeight));
         }
         if (activeMode === "wifi") {
-            if (wifiMod.activeTab === "hotspot") return 366;
-            if (!wifiMod.wifiEnabled) return 226;
-            if (wifiMod.model.count === 0) return 286;
-
-            var listItemsHeight = 0;
-            for (var i = 0; i < wifiMod.model.count; i++) {
-                var item = wifiMod.model.get(i);
-                var cardH = item.inUse ? 50 : (item.isExpanded ? (item.showPassword ? (item.hasError ? 138 : 116) : 84) : 48);
-                listItemsHeight += (cardH + 6);
-            }
-            return Math.min(506, Math.max(246, 152 + listItemsHeight));
-        }
+    if (wifiMod.activeTab === "hotspot") return 400;
+    if (!wifiMod.wifiEnabled) return 226;
+    if (wifiMod.model.count === 0) return 286;
+    
+    return Math.min(560, Math.max(200, 176 + wifiMod.listViewContentHeight));
+}
         return modeDimensions[activeMode]?.height ?? modeDimensions["idle"].height;
     } 
 
