@@ -1,77 +1,95 @@
 {
-    "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
-    "display": {
-        "separator": "  󰁕  ",
-        "color": {
-            "separator": "black"
-        }
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+  // logo block removed
+//   "display": {
+//     "separator": " : "
+//   },
+  "modules": [
+    {
+      "type": "custom",
+      "format": "\u001b[36m   󰄛  コンピューター"
     },
-    "modules": [
-        "break",
-        {
-            "type": "custom",
-            "key": " ",
-            "keyColor": "magenta",
-            "format": "The Notorius SLEEPER"
-        },
-        {
-            "type": "os",
-            "key": "󰣇 ",
-            "keyColor": "magenta"
-        },
-        {
-            "type": "kernel",
-            "key": " ",
-            "keyColor": "magenta"
-        },
-        {
-            "type": "packages",
-            "key": "󰏖 ",
-            "keyColor": "magenta"
-        },
-        {
-            "type": "shell",
-            "key": " ",
-            "keyColor": "magenta"
-        },
-        "break",
-        {
-            "type": "wm",
-            "key": " ",
-            "keyColor": "blue"
-        },
-        {
-            "type": "terminal",
-            "key": " ",
-            "keyColor": "blue"
-        },
-        "break",
-        {
-            "type": "cpu",
-            "key": "󰻠 ",
-            "keyColor": "cyan"
-        },
-        {
-            "type": "gpu",
-            "key": "󰻑 ",
-            "keyColor": "cyan",
-            "format": "{2}"
-        },
-        {
-            "type": "memory",
-            "key": "󰾆 ",
-            "keyColor": "cyan"
-        },
-        {
-            "type": "uptime",
-            "key": "󰅐 ",
-            "keyColor": "cyan"
-        },
-        "break",
-        {
-            "type": "custom",
-            "format": "\u001b[31m  \u001b[32m  \u001b[33m  \u001b[34m  \u001b[35m  \u001b[36m  \u001b[37m"
-        },
-        "break"
-    ]
+    {
+      "type": "custom",
+      "format": "┌──────────────────────────────────────────┐"
+    },
+    {
+      "type": "os",
+      "key": "  󰣇 OS",
+      "format": "{2}",
+      "keyColor": "red"
+    },
+    {
+      "type": "kernel",
+      "key": "   Kernel",
+      "format": "{2}",
+      "keyColor": "red"
+    },
+    {
+      "type": "packages",
+      "key": "  󰏗 Packages",
+      "keyColor": "green"
+    },
+    {
+      "type": "display",
+      "key": "  󰍹 Display",
+      "format": "{1}x{2} @ {3}Hz [{7}]",
+      "keyColor": "green"
+    },
+    {
+      "type": "terminal",
+      "key": "  >_ Terminal",
+      "keyColor": "yellow"
+    },
+    {
+      "type": "wm",
+      "key": "  󱗃 WM",
+      "format": "{2}",
+      "keyColor": "yellow"
+    },
+    {
+      "type": "cpu",
+      "format": "{1} @ {7}",
+      "key": "   CPU",
+      "keyColor": "blue"
+    },
+    {
+      "type": "gpu",
+      "format": "{1} {2}",
+      "key": "  󰊴 GPU",
+      "keyColor": "blue"
+    },
+    {
+      "type": "gpu",
+      "format": "{3}",
+      "key": "   GPU Driver",
+      "keyColor": "magenta"
+    },
+    {
+      "type": "memory",
+      "key": "    Memory",
+      "keyColor": "magenta"
+    },
+    {
+      "type": "command",
+      "key": "  󱦟 OS Age ",
+      "keyColor": "red",
+      "text": "birth_install=$(stat -c %W /); current=$(date +%s); time_progression=$((current - birth_install)); days_difference=$((time_progression / 86400)); echo $days_difference days"
+    },
+    {
+      "type": "uptime",
+      "key": "  󱫐 Uptime ",
+      "keyColor": "red"
+    },
+    {
+      "type": "custom",
+      "format": "└──────────────────────────────────────────┘"
+    },
+    {
+      "type": "colors",
+      "paddingLeft": 2,
+      "symbol": "circle"
+    },
+    "break"
+  ]
 }

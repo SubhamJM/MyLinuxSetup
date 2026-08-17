@@ -4,6 +4,7 @@
            
 local terminal    = "kitty"
 local fileManager = "dolphin"
+local menu = "hyprlauncher"
 local browser = "zen-browser"
 
 
@@ -17,19 +18,19 @@ hl.bind(mainMod .. " + Space", hl.dsp.global("quickshell:toggleNotchLauncher"))
 hl.bind(mainMod .. " + T", hl.dsp.global("quickshell:toggleThemeNotch"))
 hl.bind(mainMod .. " + W", hl.dsp.global("quickshell:toggleWallpaperNotch"))
 hl.bind(mainMod .. " + SHIFT + W", hl.dsp.global("quickshell:toggleTransitionNotch"))
+hl.bind(mainMod .. " + SHIFT + M", hl.dsp.global("quickshell:toggleMusicInfoNotch"))
 hl.bind(mainMod .. " + grave", hl.dsp.global("quickshell:resetNotchToIdle"))
-hl.bind(mainMod .. " + R", hl.dsp.global("quickshell:toggleRecorderNotch"))
-hl.bind(mainMod .. " + P", hl.dsp.global("quickshell:togglePowerMenuNotch"))
-hl.bind(mainMod .. " + V", hl.dsp.global("quickshell:toggleClipboardNotch"))
 hl.bind("Print", hl.dsp.exec_cmd("grimblast --notify copysave area"))
 
 -- Example binds, see https://wiki.hypr.land/Configuring/Basics/Binds/ for more
 hl.bind(mainMod .. " + RETURN", hl.dsp.exec_cmd(terminal))
 local closeWindowBind = hl.bind(mainMod .. " + Q", hl.dsp.window.close())
 -- closeWindowBind:set_enabled(false)
-hl.bind(mainMod .. " + M", hl.dsp.exec_cmd("command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch 'hl.dsp.exit()'"))
+-- hl.bind(mainMod .. " + M", hl.dsp.exec_cmd("command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch 'hl.dsp.exit()'"))
 hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
-hl.bind(mainMod .. " + SHIFT + V", hl.dsp.window.float({ action = "toggle" }))
+hl.bind(mainMod .. " + V", hl.dsp.global("quickshell:toggleClipboardNotch"))
+hl.bind(mainMod .. " + R", hl.dsp.exec_cmd(menu))
+hl.bind(mainMod .. " + P", hl.dsp.global("quickshell:togglePowerMenuNotch"))
 hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"))    -- dwindle only
 
 
@@ -38,6 +39,17 @@ hl.bind(mainMod .. " + left",  hl.dsp.focus({ direction = "left" }))
 hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }))
 hl.bind(mainMod .. " + up",    hl.dsp.focus({ direction = "up" }))
 hl.bind(mainMod .. " + down",  hl.dsp.focus({ direction = "down" }))
+
+hl.bind(mainMod .. " + SHIFT + left", hl.dsp.window.move({ direction = "l" }))
+hl.bind(mainMod .. " + SHIFT + right", hl.dsp.window.move({ direction = "r" }))
+hl.bind(mainMod .. " + SHIFT + up", hl.dsp.window.move({ direction = "u" }))
+hl.bind(mainMod .. " + SHIFT + down", hl.dsp.window.move({ direction = "d" }))
+
+hl.bind(mainMod .. " + CONTROL + up", hl.dsp.focus({ workspace = "r-1" }))
+hl.bind(mainMod .. " + CONTROL + down", hl.dsp.focus({ workspace = "r+1" }))
+
+hl.bind(mainMod .. " + CONTROL + SHIFT + up", hl.dsp.window.move({ workspace = "r-1" }))
+hl.bind(mainMod .. " + CONTROL + SHIFT + down", hl.dsp.window.move({ workspace = "r+1" }))
 
 -- Switch workspaces with mainMod + [0-9]
 -- Move active window to a workspace with mainMod + SHIFT + [0-9]
@@ -75,4 +87,24 @@ hl.bind("XF86AudioPause", hl.dsp.exec_cmd("playerctl play-pause"), { locked = tr
 hl.bind("XF86AudioPlay",  hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
 hl.bind("XF86AudioPrev",  hl.dsp.exec_cmd("playerctl previous"),   { locked = true })
 
+hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+"), { repeating = true })
+hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"), { repeating = true })
+hl.bind("XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"), { locked = true })
+hl.bind("XF86AudioMicMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"), { locked = true })
 
+hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl s 5%+"), { repeating = true })
+hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl s 5%-"), { repeating = true })
+
+hl.bind("Print", hl.dsp.exec_cmd([[sh -c 'slurp | grim -g - - | wl-copy && notify-send "Screenshot" "Region copied to clipboard"']]))
+hl.bind(mainMod .. " + SHIFT + S", hl.dsp.exec_cmd([[sh -c 'slurp | grim -g - - | wl-copy && notify-send "Screenshot" "Region copied to clipboard"']]))
+
+-- 2. Full Output (Entire Screen)
+hl.bind(mainMod .. " + Print", hl.dsp.exec_cmd([[sh -c 'grim - | wl-copy && notify-send "Screenshot" "Full screen copied to clipboard"']]))
+
+-- 3. Active Window
+hl.bind(mainMod .. " + CTRL + Print", hl.dsp.exec_cmd([[sh -c 'hyprctl activewindow -j | jq -r "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])" | grim -g - - | wl-copy && notify-send "Screenshot" "Window copied to clipboard"']]))
+
+hl.bind(mainMod .. " + SUPER_L", hl.dsp.exec_cmd("fuzzel"), { on_release = true })
+
+hl.bind("SUPER + M", hl.dsp.workspace.toggle_special("music"))
+hl.bind("SUPER + D", hl.dsp.workspace.toggle_special("extra"))

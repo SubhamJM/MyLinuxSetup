@@ -58,3 +58,4 @@ require("modules.keybinds")
 
 require("modules.windowrules")
 
+require("modules.animations")
