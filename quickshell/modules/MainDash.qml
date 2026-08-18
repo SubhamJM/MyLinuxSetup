@@ -32,10 +32,7 @@ Item {
         return 120;
     }
 
-    // Smoothly animate the pill resizing instead of snapping between widths
-    Behavior on implicitWidth {
-        NumberAnimation { duration: 420; easing.type: Easing.BezierCurve; easing.bezierCurve: dash.motionCurve }
-    }
+    
 
     property string playbackStatus: ""
     property bool isMediaPlaying: false
