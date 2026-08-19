@@ -6,27 +6,29 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell.Bluetooth
+import Quickshell.Services.Notifications
 import "./modules"
 
 ShellRoot {
     id: root
 
     readonly property var modeDimensions: ({
-        "idle":       { width: 120, height: 30,  radius: 12 },
-        "hover":      { width: 460, height: 30,  radius: 12 },
-        "launcher":   { width: 460, height: 360, radius: 12 },
-        "theme":      { width: 400, height: 250, radius: 12 },
-        "wallpaper":  { width: 760, height: 320, radius: 12 },
-        "transition": { width: 420, height: 260, radius: 12 },
-        "osd":        { width: 280, height: 40,  radius: 16 },
-        "wifi":       { width: 420, height: 380, radius: 12 }, 
-        "bluetooth":  { width: 400, height: 360, radius: 12 },
-        "recorder":   { width: 380, height: 225, radius: 12 },
-        "battery":    { width: 380, height: 188, radius: 12 },
-        "powermenu":  { width: 440, height: 100,  radius: 14 },
-        "calendar":   { width: 320, height: 280, radius: 12 },
-        "clipboard":  { width: 460, height: 380, radius: 12 },
-        "shelf":      { width: 460, height: 380, radius: 12 }
+        "idle":          { width: 120, height: 30,  radius: 12 },
+        "hover":         { width: 460, height: 46,  radius: 12 },
+        "launcher":      { width: 460, height: 360, radius: 12 },
+        "theme":         { width: 440, height: 280, radius: 12 },
+        "wallpaper":     { width: 760, height: 320, radius: 12 },
+        "transition":    { width: 440, height: 320, radius: 12 },
+        "osd":           { width: 280, height: 40,  radius: 16 },
+        "wifi":          { width: 420, height: 380, radius: 12 }, 
+        "bluetooth":     { width: 400, height: 360, radius: 12 },
+        "recorder":      { width: 380, height: 225, radius: 12 },
+        "battery":       { width: 380, height: 220, radius: 12 },
+        "powermenu":     { width: 440, height: 100, radius: 14 },
+        "calendar":      { width: 320, height: 280, radius: 12 },
+        "clipboard":     { width: 460, height: 380, radius: 12 },
+        "shelf":         { width: 460, height: 380, radius: 12 },
+        "notifications": { width: 440, height: 380, radius: 12 }
     })
 
     property string activeMode: "idle"
@@ -35,6 +37,82 @@ ShellRoot {
     property bool isScreenRecording: false
     property bool openedViaShortcut: false
 
+    // Persistent notifications store
+    ListModel {
+        id: globalNotifModel
+    }
+
+    // Notification Island Banner State
+    property string notifPopupSummary: ""
+    property string notifPopupBody: ""
+    property string notifPopupApp: ""
+    property bool isNotifPopupActive: notifPopupSummary !== ""
+
+    Timer {
+        id: notifPopupTimer
+        interval: 1500
+        repeat: false
+        onTriggered: {
+            root.notifPopupSummary = "";
+            root.notifPopupBody = "";
+            root.notifPopupApp = "";
+            if (root.activeMode === "idle" && !notchHoverHandler.hovered) {
+                root.collapseToIdle();
+            }
+        }
+	}
+
+	property bool isServerReady: false
+
+	Timer {
+		id: startupGraceTimer
+		interval: 800 // Ignore replayed notifications during the initial 800ms reload window
+		running: true
+		repeat: false
+		onTriggered: root.isServerReady = true
+	}
+
+    // Native D-Bus Notification Server
+    NotificationServer {
+		id: notifServer
+
+		onNotification: (notification) => {
+			notification.tracked = true;
+
+			var summaryText = notification.summary || "";
+			var bodyText = notification.body || "";
+			var appNameText = notification.appName || "System";
+			var appIconText = notification.appIcon || "";
+
+			// Check if already in the list to prevent duplicates on reload
+			var exists = false;
+			for (var i = 0; i < globalNotifModel.count; i++) {
+				var item = globalNotifModel.get(i);
+				if (item.summary === summaryText && item.body === bodyText && item.appName === appNameText) {
+					exists = true;
+					break;
+				}
+			}
+
+			if (!exists) {
+				globalNotifModel.insert(0, {
+					"summary": summaryText,
+					"body": bodyText,
+					"appName": appNameText,
+					"appIcon": appIconText,
+					"notifObj": notification
+				});
+			}
+
+			// Only pop up the banner if Quickshell has finished initializing
+			if (root.isServerReady) {
+				root.notifPopupSummary = summaryText !== "" ? summaryText : appNameText;
+				root.notifPopupBody = bodyText;
+				root.notifPopupApp = appNameText;
+				notifPopupTimer.restart();
+			}
+		}
+	}
     readonly property bool isDashMode: activeMode === "idle" || activeMode === "hover"
 
     function collapseToIdle() {
@@ -88,16 +166,25 @@ ShellRoot {
     }
 
     readonly property int targetWidth: {
-        if ((activeMode === "hover" || activeMode === "idle") && typeof dashMod !== "undefined") {
+        if (isDashMode && typeof dashMod !== "undefined") {
             return dashMod.implicitWidth;
         }
         return modeDimensions[activeMode]?.width ?? modeDimensions["idle"].width;
     }
     
-    readonly property int targetHeight: {
+	readonly property int targetHeight: {
+		if (root.isNotifPopupActive && root.isDashMode) {
+			return 54; // Increase this value (e.g., 52 to 64) for a taller banner
+		}
+		if (activeMode === "transition") return 320;
         if (activeMode === "calendar") return 280;
         if (activeMode === "powermenu") return 100;
-        if (activeMode === "battery") return 165;
+        if (activeMode === "battery") return 220;
+        if (activeMode === "notifications") {
+            if (globalNotifModel.count === 0) return 200;
+            var notifCalcH = 50 + (globalNotifModel.count * 76);
+            return Math.min(480, Math.max(200, notifCalcH));
+        }
         if (activeMode === "shelf") {
             if (typeof shelfMod === "undefined" || shelfMod.calculatedCount === 0) return 220;
             var shelfCalcH = 66 + (shelfMod.calculatedCount * 48);
@@ -132,12 +219,11 @@ ShellRoot {
             return Math.min(486, Math.max(246, 112 + listItemsHeight));
         }
         if (activeMode === "wifi") {
-    if (wifiMod.activeTab === "hotspot") return 400;
-    if (!wifiMod.wifiEnabled) return 226;
-    if (wifiMod.model.count === 0) return 286;
-    
-    return Math.min(560, Math.max(200, 176 + wifiMod.listViewContentHeight));
-}
+            if (wifiMod.activeTab === "hotspot") return 400;
+            if (!wifiMod.wifiEnabled) return 226;
+            if (wifiMod.model.count === 0) return 286;
+            return Math.min(560, Math.max(200, 176 + wifiMod.listViewContentHeight));
+        }
         return modeDimensions[activeMode]?.height ?? modeDimensions["idle"].height;
     } 
 
@@ -222,6 +308,7 @@ ShellRoot {
     GlobalShortcut { name: "toggleCalendarNotch"; onPressed: root.switchMode("calendar", true) }
     GlobalShortcut { name: "toggleClipboardNotch"; onPressed: root.switchMode("clipboard", true) }
     GlobalShortcut { name: "toggleShelfNotch"; onPressed: root.switchMode("shelf", true) }
+    GlobalShortcut { name: "toggleNotificationsNotch"; onPressed: root.switchMode("notifications", true) }
     GlobalShortcut { name: "toggleMusicInfoNotch"; onPressed: if (typeof dashMod !== "undefined") dashMod.showMusicInfo = !dashMod.showMusicInfo }
 
     // Main Notch Panel
@@ -294,7 +381,7 @@ ShellRoot {
                 onPaint: {
                     var ctx = getContext("2d");
                     ctx.reset();
-                    ctx.fillStyle = Theme.colors.bg ?? "#16161e";
+                    ctx.fillStyle = "#12141c";
                     ctx.beginPath();
                     ctx.moveTo(width + 1, 0); ctx.lineTo(width + 1, height);
                     ctx.arcTo(width, 0, 0, 0, height);
@@ -315,7 +402,7 @@ ShellRoot {
                 onPaint: {
                     var ctx = getContext("2d");
                     ctx.reset();
-                    ctx.fillStyle = Theme.colors.bg ?? "#16161e";
+                    ctx.fillStyle = "#12141c";
                     ctx.beginPath();
                     ctx.moveTo(-1, 0); ctx.lineTo(-1, height);
                     ctx.arcTo(0, 0, width, 0, height);
@@ -329,7 +416,7 @@ ShellRoot {
                 anchors.margins: -20
                 hoverEnabled: true
                 acceptedButtons: Qt.NoButton
-                enabled: root.activeMode === "wifi" || root.activeMode === "bluetooth" || root.activeMode === "battery" || root.activeMode === "shelf"
+                enabled: root.activeMode === "wifi" || root.activeMode === "bluetooth" || root.activeMode === "battery" || root.activeMode === "shelf" || root.activeMode === "notifications"
                 onContainsMouseChanged: {
                     if (containsMouse) {
                         autoCollapseTimer.stop();
@@ -346,7 +433,7 @@ ShellRoot {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: root.targetWidth
                 height: root.targetHeight
-                color: Theme.colors.bg ?? "#16161e"
+                color: "#12141c";
                 clip: true
                 
                 radius: 0
@@ -361,11 +448,12 @@ ShellRoot {
                     anchors.top: parent.top
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    height: 30
+                    height: root.targetHeight
                     z: 5
 
                     opacity: root.isDashMode ? 1.0 : 0.0
                     visible: opacity > 0.01
+                    Behavior on height { NumberAnimation { duration: 400; easing.type: Easing.OutExpo } }
                     Behavior on opacity { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
 
                     MainDash { 
@@ -396,20 +484,21 @@ ShellRoot {
                         currentIndex: {
                             var mode = root.isDashMode ? root.previousExpandedMode : root.activeMode;
                             switch(mode) {
-                                case "launcher":   return 0;
-                                case "theme":      return 1;
-                                case "wallpaper":  return 2;
-                                case "transition": return 3;
-                                case "osd":        return 4;
-                                case "bluetooth":  return 5;
-                                case "wifi":       return 6;
-                                case "recorder":   return 7;
-                                case "battery":    return 8;
-                                case "powermenu":  return 9;
-                                case "calendar":   return 10;
-                                case "clipboard":  return 11;
-                                case "shelf":      return 12;
-                                default:           return 0;
+                                case "launcher":      return 0;
+                                case "theme":         return 1;
+                                case "wallpaper":     return 2;
+                                case "transition":    return 3;
+                                case "osd":           return 4;
+                                case "bluetooth":     return 5;
+                                case "wifi":          return 6;
+                                case "recorder":      return 7;
+                                case "battery":       return 8;
+                                case "powermenu":     return 9;
+                                case "calendar":      return 10;
+                                case "clipboard":     return 11;
+                                case "shelf":         return 12;
+                                case "notifications": return 13;
+                                default:              return 0;
                             }
                         }
 
@@ -426,6 +515,7 @@ ShellRoot {
                         CalendarModule     { id: calMod }
                         ClipboardModule    { id: clipMod }
                         ShelfModule        { id: shelfMod }
+                        NotificationModule { id: notifMod }
                     }
                 }
 

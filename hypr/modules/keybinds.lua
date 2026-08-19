@@ -21,7 +21,8 @@ hl.bind(mainMod .. " + SHIFT + W", hl.dsp.global("quickshell:toggleTransitionNot
 hl.bind(mainMod .. " + SHIFT + M", hl.dsp.global("quickshell:toggleMusicInfoNotch"))
 hl.bind(mainMod .. " + grave", hl.dsp.global("quickshell:resetNotchToIdle"))
 hl.bind(mainMod .. " + D", hl.dsp.global("quickshell:toggleShelfNotch"))
-hl.bind("Print", hl.dsp.exec_cmd("grimblast --notify copysave area"))
+hl.bind(mainMod .. " + N", hl.dsp.global("quickshell:toggleNotificationsNotch"))
+hl.bind("Print", hl.dsp.exec_cmd('grimblast --notify copysave area'))
 
 -- Example binds, see https://wiki.hypr.land/Configuring/Basics/Binds/ for more
 hl.bind(mainMod .. " + RETURN", hl.dsp.exec_cmd(terminal))
@@ -88,16 +89,6 @@ hl.bind("XF86AudioPause", hl.dsp.exec_cmd("playerctl play-pause"), { locked = tr
 hl.bind("XF86AudioPlay",  hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
 hl.bind("XF86AudioPrev",  hl.dsp.exec_cmd("playerctl previous"),   { locked = true })
 
-hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+"), { repeating = true })
-hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"), { repeating = true })
-hl.bind("XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"), { locked = true })
-hl.bind("XF86AudioMicMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"), { locked = true })
-
-hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl s 5%+"), { repeating = true })
-hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl s 5%-"), { repeating = true })
-
-hl.bind("Print", hl.dsp.exec_cmd([[sh -c 'slurp | grim -g - - | wl-copy && notify-send "Screenshot" "Region copied to clipboard"']]))
-hl.bind(mainMod .. " + SHIFT + S", hl.dsp.exec_cmd([[sh -c 'slurp | grim -g - - | wl-copy && notify-send "Screenshot" "Region copied to clipboard"']]))
 
 -- 2. Full Output (Entire Screen)
 hl.bind(mainMod .. " + Print", hl.dsp.exec_cmd([[sh -c 'grim - | wl-copy && notify-send "Screenshot" "Full screen copied to clipboard"']]))

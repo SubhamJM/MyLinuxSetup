@@ -12,13 +12,30 @@ ColumnLayout {
     property string lastAppliedWallpaper: ""
     ListModel { id: wallpaperModel }
 
+    // Query active wallpaper and populate carousel whenever the module opens
     Process {
         id: wallpaperScanner
         running: root.activeMode === "wallpaper"
         command: ["sh", "-c", `python3 -c "
-import os, glob
+import os, glob, subprocess
+
 theme = '${Theme.currentThemeName}'
 wall_dir = os.path.expanduser(f'~/Pictures/Wallpapers/{theme}')
+
+# Get current active wallpaper path from awww query
+active_wall = ''
+try:
+    p = subprocess.run(['awww', 'query'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    for line in p.stdout.splitlines():
+        if 'image:' in line.lower():
+            active_wall = line.split('image:', 1)[1].strip()
+            break
+        elif line.strip():
+            active_wall = line.strip().split()[-1]
+            break
+except Exception:
+    pass
+
 exts = ('*.jpg', '*.jpeg', '*.png', '*.webp')
 files = []
 if os.path.exists(wall_dir):
@@ -26,15 +43,19 @@ if os.path.exists(wall_dir):
         files.extend(glob.glob(os.path.join(wall_dir, ext)))
     files.extend(glob.glob(os.path.join(wall_dir, '*/*.jpg')))
     files.extend(glob.glob(os.path.join(wall_dir, '*/*.png')))
-for f in sorted(list(set(files))):
+
+sorted_files = sorted(list(set(files)))
+for f in sorted_files:
     name = os.path.basename(f)
-    print(f'{name}|||{f}')
+    print(f'{name}|||{f}|||{active_wall}')
 "
         `]
         stdout: StdioCollector {
             onStreamFinished: {
                 var lines = this.text.trim().split("\n");
                 var temp = [];
+                var activeFromQuery = "";
+
                 for (var i = 0; i < lines.length; i++) {
                     var parts = lines[i].split("|||");
                     if (parts.length >= 2) {
@@ -42,8 +63,19 @@ for f in sorted(list(set(files))):
                             "fileName": parts[0],
                             "filePath": parts[1]
                         });
+                        if (parts.length >= 3 && parts[2].trim() !== "") {
+                            activeFromQuery = parts[2].trim();
+                        }
                     }
                 }
+
+                if (activeFromQuery !== "") {
+                    wallModule.lastAppliedWallpaper = activeFromQuery;
+                }
+
+                // Snap smoothly without initial jump
+                wallpaperCarousel.highlightMoveDuration = 0;
+
                 wallpaperModel.clear();
                 for (var j = 0; j < temp.length; j++) {
                     wallpaperModel.append(temp[j]);
@@ -52,17 +84,29 @@ for f in sorted(list(set(files))):
                 var targetIdx = 0;
                 if (wallModule.lastAppliedWallpaper !== "") {
                     for (var k = 0; k < wallpaperModel.count; k++) {
-                        if (wallpaperModel.get(k).filePath === wallModule.lastAppliedWallpaper) {
+                        var fPath = wallpaperModel.get(k).filePath;
+                        if (fPath === wallModule.lastAppliedWallpaper || wallModule.lastAppliedWallpaper.endsWith(wallpaperModel.get(k).fileName)) {
                             targetIdx = k;
                             break;
                         }
                     }
                 }
+
                 if (wallpaperModel.count > 0) {
                     wallpaperCarousel.currentIndex = targetIdx;
+                    wallpaperCarousel.positionViewAtIndex(targetIdx, PathView.Center);
                 }
+
+                restoreAnimTimer.restart();
             }
         }
+    }
+
+    Timer {
+        id: restoreAnimTimer
+        interval: 60
+        repeat: false
+        onTriggered: wallpaperCarousel.highlightMoveDuration = 180
     }
 
     Process { id: wallpaperRunner; running: false }
@@ -134,7 +178,7 @@ for f in sorted(list(set(files))):
                 preferredHighlightBegin: 0.5
                 preferredHighlightEnd: 0.5
                 highlightRangeMode: PathView.StrictlyEnforceRange
-                highlightMoveDuration: 180
+                highlightMoveDuration: 0
 
                 readonly property real itemWidth: Math.min(270, Math.max(160, width * 0.44))
                 readonly property real itemHeight: height * 0.88
@@ -335,7 +379,7 @@ for f in sorted(list(set(files))):
                 "--transition-bezier", "0.25,0.1,0.25,1.0"
             ];
             wallpaperRunner.running = true;
-            root.activeMode = "idle";
+            root.collapseToIdle();
         }
     }
 }

@@ -8,34 +8,30 @@ import "../"
 ColumnLayout {
     id: batteryModule
     spacing: 10
+    Layout.fillWidth: true
 
     property int batteryLevel: 100
     property bool isCharging: false
     property real currentEnergyWh: 0
     property real fullEnergyWh: 0
     property real designEnergyWh: 0
+    property real currentPowerW: 0
     property int healthPercentage: 100
     property string activeProfile: "balanced"
 
     readonly property bool isWarningLevel: batteryLevel <= 25 && batteryLevel > 15 && !isCharging
     readonly property bool isLowLevel: batteryLevel <= 15 && !isCharging
 
-    function batteryIcon(lvl, charging) {
-        if (charging) return "󱐋";
-        if (lvl <= 15) return "󰁺";
-        if (lvl <= 30) return "󰁻";
-        if (lvl <= 45) return "󰁼";
-        if (lvl <= 60) return "󰁽";
-        if (lvl <= 75) return "󰁾";
-        if (lvl <= 90) return "󰂀";
-        return "󰁹";
-    }
+    readonly property color accentColor: Theme.colors.accent ?? "#7aa2f7"
+    readonly property color warningColor: Theme.colors.warning ?? "#e0af68"
+    readonly property color errorColor: Theme.colors.error ?? "#f44336"
+    readonly property color chargingColor: "#8FDEB4"
 
     readonly property color statusColor: {
-        if (isCharging) return Theme.colors.accent ?? "#7aa2f7";
-        if (isLowLevel) return Theme.colors.error ?? "#f44336";
-        if (isWarningLevel) return Theme.colors.warning ?? "#e0af68";
-        return Theme.colors.accent ?? "#7aa2f7";
+        if (isCharging) return chargingColor;
+        if (isLowLevel) return errorColor;
+        if (isWarningLevel) return warningColor;
+        return accentColor;
     }
 
     Process {
@@ -47,7 +43,7 @@ import glob, os
 
 bats = [b for b in glob.glob('/sys/class/power_supply/*') if os.path.exists(os.path.join(b, 'type')) and open(os.path.join(b, 'type')).read().strip() == 'Battery']
 if not bats:
-    print('100|||Not Charging|||0.0|||0.0|||0.0|||100')
+    print('100|||Not Charging|||0.0|||0.0|||0.0|||100|||0.0')
     exit()
 
 bat = bats[0]
@@ -78,6 +74,7 @@ status = read_str('status', 'Discharging')
 e_now = read_num('energy_now')
 e_full = read_num('energy_full')
 e_design = read_num('energy_full_design')
+p_now = read_num('power_now')
 
 v_design = read_num('voltage_min_design') or 11500000.0
 
@@ -85,21 +82,24 @@ if e_full is None or e_design is None or e_design == 0:
     c_now = read_num('charge_now') or 0.0
     c_full = read_num('charge_full') or 0.0
     c_design = read_num('charge_full_design') or 0.0
+    c_power = read_num('current_now') or 0.0
     
     e_now = (c_now * v_design) / 1e12
     e_full = (c_full * v_design) / 1e12
     e_design = (c_design * v_design) / 1e12
+    p_now = (c_power * v_design) / 1e12
 else:
     e_now = e_now / 1e6
     e_full = e_full / 1e6
     e_design = e_design / 1e6
+    p_now = (p_now or 0.0) / 1e6
 
 if e_design > 0:
     health = int(round((e_full / e_design) * 100))
 else:
     health = 100
 
-print(f'{cap}|||{status}|||{e_now:.1f}|||{e_full:.1f}|||{e_design:.1f}|||{health}')
+print(f'{cap}|||{status}|||{e_now:.1f}|||{e_full:.1f}|||{e_design:.1f}|||{health}|||{p_now:.1f}')
 "
         `]
         stdout: StdioCollector {
@@ -113,6 +113,7 @@ print(f'{cap}|||{status}|||{e_now:.1f}|||{e_full:.1f}|||{e_design:.1f}|||{health
                     batteryModule.fullEnergyWh = parseFloat(p[3]) || 0;
                     batteryModule.designEnergyWh = parseFloat(p[4]) || 0;
                     batteryModule.healthPercentage = Math.min(100, Math.max(0, parseInt(p[5]) || 100));
+                    batteryModule.currentPowerW = parseFloat(p[6]) || 0;
                 }
             }
         }
@@ -130,7 +131,6 @@ print(f'{cap}|||{status}|||{e_now:.1f}|||{e_full:.1f}|||{e_design:.1f}|||{health
         }
     }
 
-    // 1-second update interval for real-time responsiveness
     Timer {
         interval: 1000
         running: root.activeMode === "battery" || root.activeMode === "hover" || root.activeMode === "idle"
@@ -147,187 +147,201 @@ print(f'{cap}|||{status}|||{e_now:.1f}|||{e_full:.1f}|||{e_design:.1f}|||{health
         Quickshell.execDetached(["powerprofilesctl", "set", profileName]);
     }
 
-    // // ==========================================
-    // // STATUS CARD — Android Settings-style circular
-    // // battery ring, percentage centered inside it
-    // // instead of a separate top badge.
-    // // ==========================================
-    // Rectangle {
-    //     Layout.fillWidth: true; Layout.preferredHeight: 138; radius: 20
-    //     color: Theme.colors.card_bg ?? "#1f2335"
-    //     border.width: 1; border.color: Theme.colors.border ?? "#16161e"
-
-    //     ColumnLayout {
-    //         anchors.fill: parent
-    //         anchors.margins: 10
-    //         spacing: 6
-
-    //         Item {
-    //             Layout.alignment: Qt.AlignHCenter
-    //             Layout.preferredWidth: 84
-    //             Layout.preferredHeight: 84
-
-    //             Canvas {
-    //                 id: batteryRing
-    //                 anchors.fill: parent
-
-    //                 property real level: batteryModule.batteryLevel
-    //                 property color ringColor: batteryModule.statusColor
-    //                 property color trackColor: {
-    //                     var t = Theme.colors.text_secondary ?? "#565f89";
-    //                     return Qt.rgba(t.r, t.g, t.b, 0.18);
-    //                 }
-
-    //                 onLevelChanged: requestPaint()
-    //                 onRingColorChanged: requestPaint()
-    //                 Connections { target: Theme; function onColorsChanged() { batteryRing.requestPaint() } }
-    //                 Component.onCompleted: requestPaint()
-
-    //                 onPaint: {
-    //                     var ctx = getContext("2d");
-    //                     ctx.reset();
-    //                     var cx = width / 2, cy = height / 2, r = Math.min(width, height) / 2 - 5;
-
-    //                     ctx.lineWidth = 7;
-    //                     ctx.lineCap = "round";
-
-    //                     ctx.beginPath();
-    //                     ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-    //                     ctx.strokeStyle = trackColor;
-    //                     ctx.stroke();
-
-    //                     var startAngle = -Math.PI / 2;
-    //                     var endAngle = startAngle + (2 * Math.PI * (level / 100));
-    //                     ctx.beginPath();
-    //                     ctx.arc(cx, cy, r, startAngle, endAngle, false);
-    //                     ctx.strokeStyle = ringColor;
-    //                     ctx.stroke();
-    //                 }
-    //             }
-
-    //             ColumnLayout {
-    //                 anchors.centerIn: parent
-    //                 spacing: -2
-    //                 Text {
-    //                     Layout.alignment: Qt.AlignHCenter
-    //                     text: batteryModule.batteryLevel + "%"
-    //                     font.pixelSize: 21; font.bold: true
-    //                     color: Theme.colors.text_primary ?? "white"
-    //                 }
-    //             }
-
-    //             // Charging badge, overlaid bottom-right of the ring —
-    //             // mirrors Android's small bolt overlay on the battery icon.
-    //             Rectangle {
-    //                 visible: batteryModule.isCharging
-    //                 width: 26; height: 26; radius: 13
-    //                 anchors.right: parent.right
-    //                 anchors.bottom: parent.bottom
-    //                 anchors.rightMargin: -2
-    //                 anchors.bottomMargin: -2
-    //                 color: batteryModule.statusColor
-    //                 border.width: 3
-    //                 border.color: Theme.colors.card_bg ?? "#1f2335"
-    //                 Text {
-    //                     anchors.centerIn: parent
-    //                     text: "󱐋"
-    //                     font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11
-    //                     color: Theme.colors.bg ?? "#16161e"
-    //                 }
-    //             }
-    //         }
-
-    //         ColumnLayout {
-    //             Layout.alignment: Qt.AlignHCenter
-    //             spacing: 1
-
-    //             Text {
-    //                 Layout.alignment: Qt.AlignHCenter
-    //                 text: batteryModule.isCharging ? "Charging" : (batteryModule.isWarningLevel || batteryModule.isLowLevel ? "Low battery" : "On battery")
-    //                 font.pixelSize: 13; font.bold: true
-    //                 color: batteryModule.statusColor
-
-    //                 SequentialAnimation on opacity {
-    //                     running: batteryModule.isLowLevel
-    //                     loops: Animation.Infinite
-    //                     NumberAnimation { to: 0.4; duration: 500 }
-    //                     NumberAnimation { to: 1.0; duration: 500 }
-    //                 }
-    //             }
-    //             Text {
-    //                 Layout.alignment: Qt.AlignHCenter
-    //                 text: batteryModule.currentEnergyWh.toFixed(1) + " Wh remaining"
-    //                 font.pixelSize: 11
-    //                 color: Theme.colors.text_secondary ?? "#565f89"
-    //             }
-    //         }
-    //     }
-    // }
-
-    // Health Card
+    // Hero Metric Card
     Rectangle {
         Layout.fillWidth: true
-        Layout.preferredHeight: 58
-        radius: 14
+        Layout.preferredHeight: 120
+        radius: 12
         color: Theme.colors.card_bg ?? "#1f2335"
         border.width: 1
         border.color: Theme.colors.border ?? "#16161e"
 
-        ColumnLayout {
+        RowLayout {
             anchors.fill: parent
-            anchors.margins: 8
-            spacing: 6
+            anchors.margins: 12
+            spacing: 14
 
-            RowLayout {
-                Layout.fillWidth: true
-                Text {
-                    text: "Battery Health"
-                    font.pixelSize: 12
-                    font.bold: true
-                    color: Theme.colors.text_primary ?? "white"
+            Item {
+                Layout.preferredWidth: 88
+                Layout.preferredHeight: 88
+                Layout.alignment: Qt.AlignVCenter
+
+                Canvas {
+                    id: batteryDial
+                    anchors.fill: parent
+
+                    property real level: batteryModule.batteryLevel
+                    property color dialColor: batteryModule.statusColor
+                    property color trackColor: Qt.rgba(1, 1, 1, 0.07)
+
+                    onLevelChanged: requestPaint()
+                    onDialColorChanged: requestPaint()
+                    Connections {
+                        target: Theme
+                        function onColorsChanged() { batteryDial.requestPaint(); }
+                    }
+                    Component.onCompleted: requestPaint()
+
+                    onPaint: {
+                        var ctx = getContext("2d");
+                        ctx.reset();
+                        var cx = width / 2;
+                        var cy = height / 2;
+                        var r = Math.min(width, height) / 2 - 6;
+
+                        ctx.lineWidth = 6;
+                        ctx.lineCap = "round";
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+                        ctx.strokeStyle = trackColor;
+                        ctx.stroke();
+
+                        var startAngle = -Math.PI / 2;
+                        var endAngle = startAngle + (2 * Math.PI * (level / 100.0));
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, r, startAngle, endAngle, false);
+                        ctx.strokeStyle = dialColor;
+                        ctx.stroke();
+                    }
                 }
-                Item { Layout.fillWidth: true }
-                Text {
-                    text: batteryModule.fullEnergyWh.toFixed(1) + " Wh / " + batteryModule.designEnergyWh.toFixed(1) + " Wh (" + batteryModule.healthPercentage + "%)"
-                    font.pixelSize: 11
-                    font.bold: true
-                    color: batteryModule.healthPercentage > 75 ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.error ?? "#f44336")
+
+                ColumnLayout {
+                    anchors.centerIn: parent
+                    spacing: -2
+
+                    Text {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: batteryModule.batteryLevel + "%"
+                        font.family: "Inter"
+                        font.pixelSize: 20
+                        font.bold: true
+                        font.features: { "tnum": 1 }
+                        color: Theme.colors.text_primary ?? "white"
+                    }
+                    Text {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: batteryModule.isCharging ? "Charging" : (batteryModule.isLowLevel ? "Low" : "Battery")
+                        font.family: "Inter"
+                        font.pixelSize: 9
+                        font.weight: Font.DemiBold
+                        color: batteryModule.statusColor
+                    }
+                }
+
+                Rectangle {
+                    width: 20; height: 20; radius: 10
+                    anchors.right: parent.right; anchors.bottom: parent.bottom
+                    anchors.rightMargin: -1; anchors.bottomMargin: -1
+                    color: batteryModule.statusColor
+                    border.width: 2
+                    border.color: Theme.colors.card_bg ?? "#1f2335"
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: batteryModule.isCharging ? "󱐋" : (batteryModule.isLowLevel ? "!" : "󰁹")
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 10
+                        font.bold: true
+                        color: Theme.colors.bg ?? "#16161e"
+                    }
                 }
             }
 
-            Rectangle {
+            ColumnLayout {
                 Layout.fillWidth: true
-                height: 5
-                radius: 2.5
-                color: Theme.colors.bg ?? "#16161e"
-                clip: true
+                Layout.fillHeight: true
+                Layout.alignment: Qt.AlignVCenter
+                spacing: 6
 
-                Rectangle {
-                    width: parent.width * (batteryModule.healthPercentage / 100.0)
-                    height: parent.height
-                    radius: 2.5
-                    color: batteryModule.healthPercentage > 75 ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.error ?? "#f44336")
-                    Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutQuad } }
+                RowLayout {
+                    Layout.fillWidth: true
+                    
+                    Column {
+                        spacing: 1
+                        Text {
+                            text: batteryModule.isCharging ? "AC Power Connected" : "Battery Discharging"
+                            font.family: "Inter"
+                            font.pixelSize: 12
+                            font.bold: true
+                            color: Theme.colors.text_primary ?? "white"
+                        }
+                        Text {
+                            text: (batteryModule.currentPowerW > 0 ? batteryModule.currentPowerW.toFixed(1) + " W rate • " : "") + batteryModule.currentEnergyWh.toFixed(1) + " Wh remaining"
+                            font.family: "Inter"
+                            font.pixelSize: 10
+                            color: Theme.colors.text_secondary ?? "#565f89"
+                        }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 3
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            text: "Battery Health"
+                            font.family: "Inter"
+                            font.pixelSize: 10
+                            font.weight: Font.Medium
+                            color: Theme.colors.text_secondary ?? "#565f89"
+                        }
+                        Item { Layout.fillWidth: true }
+                        Text {
+                            text: batteryModule.healthPercentage + "%"
+                            font.family: "Inter"
+                            font.pixelSize: 10
+                            font.bold: true
+                            color: batteryModule.healthPercentage > 75 ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.error ?? "#f44336")
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 4
+                        radius: 2
+                        color: Theme.colors.bg ?? "#16161e"
+                        clip: true
+
+                        Rectangle {
+                            width: parent.width * (batteryModule.healthPercentage / 100.0)
+                            height: parent.height
+                            radius: 2
+                            color: batteryModule.healthPercentage > 75 ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.error ?? "#f44336")
+                            Behavior on width { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
+                        }
+                    }
+                }
+
+                Text {
+                    text: batteryModule.fullEnergyWh.toFixed(1) + " Wh capacity / " + batteryModule.designEnergyWh.toFixed(1) + " Wh design"
+                    font.family: "Inter"
+                    font.pixelSize: 9
+                    color: Theme.colors.text_secondary ?? "#565f89"
+                    opacity: 0.8
                 }
             }
         }
     }
 
-    // Power Profiles — Android-style segmented pill control, same
-    // pattern as the Wi-Fi / Hotspot tab switcher in WifiModule.qml.
+    // Power Profiles Pill Control
     ColumnLayout {
         Layout.fillWidth: true
         spacing: 4
 
         Text {
             text: "Power Profile"
+            font.family: "Inter"
             font.pixelSize: 11
             font.bold: true
             color: Theme.colors.text_secondary ?? "#565f89"
         }
 
         Rectangle {
-            Layout.fillWidth: true; Layout.preferredHeight: 44; radius: 22
+            Layout.fillWidth: true
+            Layout.preferredHeight: 38
+            radius: 19
             color: Theme.colors.hover_bg ?? "#24283b"
 
             RowLayout {
@@ -345,10 +359,10 @@ print(f'{cap}|||{status}|||{e_now:.1f}|||{e_full:.1f}|||{e_design:.1f}|||{health
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        radius: 19
+                        radius: 16
                         property bool isSelected: batteryModule.activeProfile === modelData.profile
                         color: isSelected ? (Theme.colors.accent ?? "#7aa2f7") : "transparent"
-                        Behavior on color { ColorAnimation { duration: 220; easing.type: Easing.OutCubic } }
+                        Behavior on color { ColorAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
                         RowLayout {
                             anchors.centerIn: parent
@@ -356,11 +370,12 @@ print(f'{cap}|||{status}|||{e_now:.1f}|||{e_full:.1f}|||{e_design:.1f}|||{health
                             Text {
                                 text: modelData.icon
                                 font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 13
+                                font.pixelSize: 12
                                 color: isSelected ? (Theme.colors.bg ?? "#16161e") : (Theme.colors.text_secondary ?? "#565f89")
                             }
                             Text {
                                 text: modelData.text
+                                font.family: "Inter"
                                 font.bold: true
                                 font.pixelSize: 11
                                 color: isSelected ? (Theme.colors.bg ?? "#16161e") : (Theme.colors.text_primary ?? "white")

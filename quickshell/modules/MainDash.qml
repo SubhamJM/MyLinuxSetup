@@ -12,8 +12,13 @@ Item {
 
     property bool netIslandExpanded: false
     property bool powerIslandExpanded: false
-    property bool isIslandActive: btIslandExpanded || powerIslandExpanded || netIslandExpanded
+    property bool isIslandActive: btIslandExpanded || powerIslandExpanded || netIslandExpanded || root.isNotifPopupActive
+
     property int activeIslandWidth: {
+        if (root.isNotifPopupActive) {
+            var textW = Math.max(notifSummaryText.implicitWidth, notifBodyText.implicitWidth);
+            return Math.min(520, Math.max(260, textW + 80));
+        }
         if (btIslandExpanded) return btPopupRow.implicitWidth + 36;
         if (powerIslandExpanded) return powerPopupRow.implicitWidth + 36;
         if (netIslandExpanded) return netPopupRow.implicitWidth + 36;
@@ -23,16 +28,11 @@ Item {
     implicitWidth: {
         if (isIslandActive) return activeIslandWidth;
         if (root.activeMode === "hover") {
-            var w = centerRow.implicitWidth;
-            if (leftGroup.visible) w += leftGroup.implicitWidth + 16;
-            if (rightGroup.visible) w += rightGroup.implicitWidth + 16;
-            return Math.max(160, w + 32);
+            return Math.max(160, dashRow.implicitWidth + 32);
         }
         if (isMediaPlaying && root.activeMode === "idle") return Math.max(120, centerRow.implicitWidth + 48);
         return 120;
     }
-
-    
 
     property string playbackStatus: ""
     property bool isMediaPlaying: false
@@ -43,8 +43,6 @@ Item {
     property string currentAlbumArt: ""
     property bool isMusicDisplayed: showMusicInfo && isMediaPlaying && root.activeMode === "idle"
 
-    // Caelestia-flavoured "emphasized decelerate" motion curve — smooth glide, no bounce.
-    // (Material 3 emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1))
     readonly property var motionCurve: [0.05, 0.7, 0.1, 1, 1, 1]
 
     Process {
@@ -111,9 +109,7 @@ Item {
     property bool btIslandExpanded: false
     property string btIslandBattery: ""
     Timer { id: btPopupTimer; interval: 4000; onTriggered: dash.btIslandExpanded = false }
-
     Timer { id: powerPopupTimer; interval: 4000; onTriggered: dash.powerIslandExpanded = false }
-    
     Timer { id: netPopupTimer; interval: 4000; onTriggered: dash.netIslandExpanded = false }
 
     Connections {
@@ -202,20 +198,84 @@ Item {
         }
     }
 
-    // Island Container
-    Row {
+    // Dynamic Island Container
+    Item {
         id: islandContainer
-        anchors.centerIn: parent
+        anchors.fill: parent
         opacity: dash.isIslandActive ? 1.0 : 0.0
         scale: dash.isIslandActive ? 1.0 : 0.9
         visible: opacity > 0.01
         Behavior on opacity { NumberAnimation { duration: 260; easing.type: Easing.BezierCurve; easing.bezierCurve: dash.motionCurve } }
         Behavior on scale { NumberAnimation { duration: 340; easing.type: Easing.BezierCurve; easing.bezierCurve: dash.motionCurve } }
 
+        // Pop-up Notification Row (fixed layout with explicit positioning)
+        RowLayout {
+            id: notifPopupRow
+            anchors.centerIn: parent
+            spacing: 8
+            visible: root.isNotifPopupActive
+
+            Rectangle {
+                Layout.preferredWidth: 22
+                Layout.preferredHeight: 22
+                radius: 11
+                color: Qt.rgba((Theme.colors.accent ?? "#7aa2f7").r, (Theme.colors.accent ?? "#7aa2f7").g, (Theme.colors.accent ?? "#7aa2f7").b, 0.2)
+                Layout.alignment: Qt.AlignVCenter
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "󰂚"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 12
+                    color: Theme.colors.accent ?? "#7aa2f7"
+                }
+            }
+
+            ColumnLayout {
+                Layout.alignment: Qt.AlignVCenter
+                spacing: 0
+
+                Text {
+                    id: notifSummaryText
+                    text: root.notifPopupSummary
+                    font.family: "Inter"
+                    font.pixelSize: 12
+                    font.bold: true
+                    color: Theme.colors.text_primary ?? "white"
+                    elide: Text.ElideRight
+                    Layout.maximumWidth: 380
+                }
+
+                Text {
+                    id: notifBodyText
+                    text: root.notifPopupBody
+                    font.family: "Inter"
+                    font.pixelSize: 10
+                    color: Theme.colors.text_secondary ?? "#565f89"
+                    elide: Text.ElideRight
+                    Layout.maximumWidth: 380
+                    visible: text !== ""
+                }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    notifPopupTimer.stop();
+                    root.notifPopupSummary = "";
+                    root.notifPopupBody = "";
+                    root.switchMode("notifications", true);
+                }
+            }
+        }
+
+        // Bluetooth Connected Alert
         Row {
             id: btPopupRow
+            anchors.centerIn: parent
             spacing: 8
-            visible: dash.btIslandExpanded
+            visible: dash.btIslandExpanded && !root.isNotifPopupActive
 
             Text { 
                 text: "󰂱"
@@ -244,8 +304,9 @@ Item {
         // Power Notification (MagSafe style)
         Row {
             id: powerPopupRow
+            anchors.centerIn: parent
             spacing: 12
-            visible: dash.powerIslandExpanded && !dash.btIslandExpanded
+            visible: dash.powerIslandExpanded && !dash.btIslandExpanded && !root.isNotifPopupActive
             
             Item {
                 width: 20
@@ -285,8 +346,9 @@ Item {
         // Network Handoff Notification
         Row {
             id: netPopupRow
+            anchors.centerIn: parent
             spacing: 8
-            visible: dash.netIslandExpanded && !dash.powerIslandExpanded && !dash.btIslandExpanded
+            visible: dash.netIslandExpanded && !dash.powerIslandExpanded && !dash.btIslandExpanded && !root.isNotifPopupActive
             
             Text {
                 text: dash.activeNetType === "eth" ? "󰈀" : "󰤨"
@@ -303,6 +365,7 @@ Item {
         }
     }
 
+    // Default Persistent Bar Row
     Row {
         id: dashRow
         anchors.centerIn: parent
@@ -324,8 +387,6 @@ Item {
             Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
             Repeater {
-                // Special/scratchpad Hyprland workspaces use negative ids (e.g. -98, -99)
-                // and shouldn't be rendered as regular workspace pills.
                 model: typeof Hyprland !== "undefined" && Hyprland.workspaces
                     ? Hyprland.workspaces.values.filter(function(w) { return w.id > 0; })
                     : []
@@ -359,6 +420,18 @@ Item {
             }
         }
 
+        // Divider — workspaces | clock
+        Rectangle {
+            width: 1
+            height: 18
+            radius: 0.5
+            color: Theme.colors.text_secondary ?? "#565f89"
+            opacity: leftGroup.visible ? 0.25 : 0.0
+            visible: leftGroup.visible
+            anchors.verticalCenter: parent.verticalCenter
+            Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+        }
+
         // Date & Time / Music Info
         Item {
             id: centerItem
@@ -370,20 +443,19 @@ Item {
                 anchors.centerIn: parent
                 spacing: 8
 
-                // Audio Visualizer (5 bars, staggered)
+                // Audio Visualizer
                 Row {
                     id: audioVisualizer
                     spacing: 2
                     anchors.verticalCenter: parent.verticalCenter
                     opacity: (dash.isMediaPlaying && root.activeMode === "idle") ? 1.0 : 0.0
                     
-                    property int targetWidth: (dash.isMediaPlaying && root.activeMode === "idle") ? (5 * 2.5 + 4 * 2) : 0 // 5 bars of 2.5px width, 4 gaps of 2px
+                    property int targetWidth: (dash.isMediaPlaying && root.activeMode === "idle") ? (5 * 2.5 + 4 * 2) : 0
                     width: targetWidth
                     visible: width > 0
                     clip: true
                     
                     Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
-                    Behavior on width { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
 
                     property var barHeights: [10, 14, 8, 12, 6]
                     property var barDurations: [380, 280, 340, 310, 360]
@@ -421,7 +493,6 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     color: "#24283b"
                     visible: width > 0
-                    Behavior on width { NumberAnimation { duration: 320; easing.type: Easing.BezierCurve; easing.bezierCurve: dash.motionCurve } }
 
                     Image {
                         id: albumArtImage
@@ -442,7 +513,7 @@ Item {
                     }
                 }
 
-                // Music Icon (fallback when no album art) — gently pulses while playing
+                // Music Icon
                 Text {
                     id: musicIcon
                     text: "󰎆"
@@ -460,7 +531,7 @@ Item {
                     }
                 }
 
-                // Date text (only in hover mode)
+                // Date text
                 Text {
                     text: Qt.formatDateTime(clock.date, "ddd d MMM")
                     color: Theme.colors.text_secondary ?? "#565f89"
@@ -471,21 +542,24 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                 }
 
-                // Clock — always visible as an anchor point, sitting symmetrically
-                // between the visualizer/artwork on one side and the song info on the other
+                // Clock
                 Text {
-                    id: clockText
-                    text: Qt.formatDateTime(clock.date, "hh:mm AP")
-                    color: Theme.colors.text_primary ?? "white"
-                    font.family: "Inter"
-                    font.pixelSize: 14
-                    font.bold: true
-                    font.features: { "tnum": 1 }
-                    renderType: Text.QtRendering
-                    anchors.verticalCenter: parent.verticalCenter
-                }
+					id: clockText
+					text: {
+						var h = clock.date.getHours() % 12 || 12;
+						var m = (clock.date.getMinutes() < 10 ? "0" : "") + clock.date.getMinutes();
+						return (h < 10 ? "0" : "") + h + ":" + m;
+					}
+					color: Theme.colors.text_primary ?? "white"
+					font.family: "Inter"
+					font.pixelSize: 14
+					font.bold: true
+					font.features: { "tnum": 1 }
+					renderType: Text.QtRendering
+					anchors.verticalCenter: parent.verticalCenter
+				}
 
-                // Small separator dot, only present while song info is shown
+                // Separator dot
                 Text {
                     text: "·"
                     color: Theme.colors.text_secondary ?? "#565f89"
@@ -497,8 +571,7 @@ Item {
                     Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
                 }
 
-                // Song title / artist — separate styling so the title reads
-                // stronger than the artist, with its own font and gentle elide
+                // Song Title / Artist
                 Item {
                     id: songTextItem
                     width: dash.isMusicDisplayed ? songRow.implicitWidth : 0
@@ -507,7 +580,6 @@ Item {
                     opacity: dash.isMusicDisplayed ? 1.0 : 0.0
                     visible: width > 0
                     anchors.verticalCenter: parent.verticalCenter
-                    Behavior on width { NumberAnimation { duration: 320; easing.type: Easing.BezierCurve; easing.bezierCurve: dash.motionCurve } }
                     Behavior on opacity { NumberAnimation { duration: 240; easing.type: Easing.BezierCurve; easing.bezierCurve: dash.motionCurve } }
 
                     Row {
@@ -515,7 +587,6 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: 5
 
-                        // No width clamp / elide — show the full title and artist
                         Text {
                             text: dash.currentSongTitle
                             color: Theme.colors.text_primary ?? "white"
@@ -535,8 +606,7 @@ Item {
                     }
                 }
 
-
-                // Recording Dot
+                // Recording Indicator
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     width: 7; height: 7; radius: 3.5
@@ -568,7 +638,19 @@ Item {
             }
         }
 
-        // System Tray Container (right of clock)
+        // Divider — clock | tray
+        Rectangle {
+            width: 1
+            height: 18
+            radius: 0.5
+            color: Theme.colors.text_secondary ?? "#565f89"
+            opacity: leftGroup.visible ? 0.25 : 0.0
+            visible: leftGroup.visible
+            anchors.verticalCenter: parent.verticalCenter
+            Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+        }
+
+        // System Tray Container
         Row {
             id: rightGroup
             anchors.verticalCenter: parent.verticalCenter
@@ -661,6 +743,4 @@ Item {
         id: clock
         precision: SystemClock.Minutes
     }
-
-
 }

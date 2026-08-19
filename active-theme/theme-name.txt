@@ -1,1 +1,1 @@
-/home/ricing/.config/themes/Gruvbox/theme-name.txt
+/home/ricing/.config/themes/Rose-Pine/theme-name.txt

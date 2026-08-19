@@ -826,7 +826,12 @@ ColumnLayout {
             Behavior on border.width { NumberAnimation { duration: 200 } }
 
             ColumnLayout {
-                anchors.fill: parent; anchors.margins: 16; spacing: 16
+                anchors.fill: parent
+                anchors.leftMargin: 16
+                anchors.rightMargin: 16
+                anchors.topMargin: 16
+                anchors.bottomMargin: 20 // Increased bottom padding inside the card
+                spacing: 14
 
                 RowLayout {
                     Layout.fillWidth: true; spacing: 10

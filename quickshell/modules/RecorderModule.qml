@@ -9,7 +9,7 @@ ColumnLayout {
     id: recorderModule
     spacing: 10
 
-    property string saveDirectory: "~/Pictures/Video"
+    property string saveDirectory: "~/Videos"
     property bool recordAudio: false
     property string selectedSourceId: ""
     property string selectedSourceName: "Default Microphone"
