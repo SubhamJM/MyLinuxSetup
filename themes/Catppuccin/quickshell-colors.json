@@ -1,8 +1,8 @@
 {
-  "bg": "#12141c",
-  "card_bg": "#181926",
-  "hover_bg": "#222436",
-  "border": "#282a3e",
+  "bg": "#11111b",
+  "card_bg": "#181825",
+  "hover_bg": "#222336",
+  "border": "#2c2e42",
   "border_hover": "#89b4fa",
   "text_primary": "#cdd6f4",
   "text_secondary": "#a6adc8",

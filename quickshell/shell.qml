@@ -381,7 +381,7 @@ ShellRoot {
                 onPaint: {
                     var ctx = getContext("2d");
                     ctx.reset();
-                    ctx.fillStyle = "#12141c";
+                    ctx.fillStyle = Theme.colors.bg ?? "#12141c";
                     ctx.beginPath();
                     ctx.moveTo(width + 1, 0); ctx.lineTo(width + 1, height);
                     ctx.arcTo(width, 0, 0, 0, height);
@@ -402,7 +402,7 @@ ShellRoot {
                 onPaint: {
                     var ctx = getContext("2d");
                     ctx.reset();
-                    ctx.fillStyle = "#12141c";
+                    ctx.fillStyle = Theme.colors.bg ?? "#12141c";
                     ctx.beginPath();
                     ctx.moveTo(-1, 0); ctx.lineTo(-1, height);
                     ctx.arcTo(0, 0, width, 0, height);
@@ -433,7 +433,7 @@ ShellRoot {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: root.targetWidth
                 height: root.targetHeight
-                color: "#12141c";
+                color: Theme.colors.bg ?? "#12141c"
                 clip: true
                 
                 radius: 0
