@@ -86,7 +86,9 @@ for t in themes:
     // Header
     RowLayout {
         Layout.fillWidth: true
-        Layout.preferredHeight: 24
+		Layout.preferredHeight: 24
+		Layout.leftMargin: 8
+        Layout.rightMargin: 8
 
         Text {
             text: "Theme"
@@ -97,6 +99,14 @@ for t in themes:
         }
 
         Item { Layout.fillWidth: true }
+
+        Text {
+            text: "Active: " + Theme.currentThemeName
+            font.family: "Inter"
+            font.pixelSize: 11
+            font.bold: true
+            color: Theme.colors.accent ?? "#7aa2f7"
+        }
     }
 
     // 3-Column Preview Grid

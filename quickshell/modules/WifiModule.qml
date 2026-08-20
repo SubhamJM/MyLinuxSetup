@@ -463,29 +463,43 @@ ColumnLayout {
             }
         }
 
-        // ----- Fixed: proper scrolling list -----
-        ListView {
-            id: wifiListView
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
-            spacing: 6
-            interactive: true
-            model: wifiMaster.wifiEnabled ? wifiModel : null
-            boundsBehavior: Flickable.DragAndOvershootBounds
-            maximumFlickVelocity: 3500
-            flickDeceleration: 2200
-            cacheBuffer: 400
+        // ===== Wi-Fi Networks ListView =====
+		ListView {
+			id: wifiListView
+			Layout.fillWidth: true
+			Layout.fillHeight: true
+			clip: true
+			spacing: 6
+			model: wifiMaster.model
+			boundsBehavior: Flickable.DragAndOvershootBounds
+			maximumFlickVelocity: 2500
+			flickDeceleration: 1500
 
-            ScrollBar.vertical: ScrollBar {
-                policy: ScrollBar.AsNeeded
-                width: 4
-                contentItem: Rectangle {
-                    radius: 2
-                    color: Theme.colors.text_secondary ?? wifiMaster.cOverlay0
-                    opacity: 0.4
-                }
-            }
+			// ScrollBar indicator
+			ScrollBar.vertical: ScrollBar {
+				policy: ScrollBar.AsNeeded
+				width: 4
+				contentItem: Rectangle {
+					radius: 2
+					color: Theme.colors.accent ?? "#7aa2f7"
+					opacity: 0.5
+				}
+			}
+
+			// Direct Mouse Wheel Scroll Handler
+			WheelHandler {
+				target: wifiListView
+				onWheel: (event) => {
+					if (event.angleDelta.y !== 0) {
+						var step = event.angleDelta.y > 0 ? -90 : 90;
+						wifiListView.contentY = Math.max(
+							0,
+							Math.min(wifiListView.contentHeight - wifiListView.height, wifiListView.contentY + step)
+						);
+						event.accepted = true;
+					}
+				}
+			}
 
             Item {
                 anchors.centerIn: parent

@@ -8,28 +8,10 @@ import QtQuick.Controls
 import Quickshell.Bluetooth
 import Quickshell.Services.Notifications
 import "./modules"
+import "./" // Imports NotchConfig singleton
 
 ShellRoot {
     id: root
-
-    readonly property var modeDimensions: ({
-        "idle":          { width: 120, height: 30,  radius: 12 },
-        "hover":         { width: 460, height: 46,  radius: 12 },
-        "launcher":      { width: 460, height: 360, radius: 12 },
-        "theme":         { width: 440, height: 280, radius: 12 },
-        "wallpaper":     { width: 760, height: 320, radius: 12 },
-        "transition":    { width: 440, height: 320, radius: 12 },
-        "osd":           { width: 280, height: 40,  radius: 16 },
-        "wifi":          { width: 420, height: 380, radius: 12 }, 
-        "bluetooth":     { width: 400, height: 360, radius: 12 },
-        "recorder":      { width: 380, height: 225, radius: 12 },
-        "battery":       { width: 380, height: 220, radius: 12 },
-        "powermenu":     { width: 440, height: 100, radius: 14 },
-        "calendar":      { width: 320, height: 280, radius: 12 },
-        "clipboard":     { width: 460, height: 380, radius: 12 },
-        "shelf":         { width: 460, height: 380, radius: 12 },
-        "notifications": { width: 440, height: 380, radius: 12 }
-    })
 
     property string activeMode: "idle"
     property string previousExpandedMode: "launcher"
@@ -50,7 +32,7 @@ ShellRoot {
 
     Timer {
         id: notifPopupTimer
-        interval: 1500
+        interval: NotchConfig.timerNotifPopup
         repeat: false
         onTriggered: {
             root.notifPopupSummary = "";
@@ -60,59 +42,58 @@ ShellRoot {
                 root.collapseToIdle();
             }
         }
-	}
+    }
 
-	property bool isServerReady: false
+    property bool isServerReady: false
 
-	Timer {
-		id: startupGraceTimer
-		interval: 800 // Ignore replayed notifications during the initial 800ms reload window
-		running: true
-		repeat: false
-		onTriggered: root.isServerReady = true
-	}
+    Timer {
+        id: startupGraceTimer
+        interval: NotchConfig.timerStartupGrace
+        running: true
+        repeat: false
+        onTriggered: root.isServerReady = true
+    }
 
     // Native D-Bus Notification Server
     NotificationServer {
-		id: notifServer
+        id: notifServer
 
-		onNotification: (notification) => {
-			notification.tracked = true;
+        onNotification: (notification) => {
+            notification.tracked = true;
 
-			var summaryText = notification.summary || "";
-			var bodyText = notification.body || "";
-			var appNameText = notification.appName || "System";
-			var appIconText = notification.appIcon || "";
+            var summaryText = notification.summary || "";
+            var bodyText = notification.body || "";
+            var appNameText = notification.appName || "System";
+            var appIconText = notification.appIcon || "";
 
-			// Check if already in the list to prevent duplicates on reload
-			var exists = false;
-			for (var i = 0; i < globalNotifModel.count; i++) {
-				var item = globalNotifModel.get(i);
-				if (item.summary === summaryText && item.body === bodyText && item.appName === appNameText) {
-					exists = true;
-					break;
-				}
-			}
+            var exists = false;
+            for (var i = 0; i < globalNotifModel.count; i++) {
+                var item = globalNotifModel.get(i);
+                if (item.summary === summaryText && item.body === bodyText && item.appName === appNameText) {
+                    exists = true;
+                    break;
+                }
+            }
 
-			if (!exists) {
-				globalNotifModel.insert(0, {
-					"summary": summaryText,
-					"body": bodyText,
-					"appName": appNameText,
-					"appIcon": appIconText,
-					"notifObj": notification
-				});
-			}
+            if (!exists) {
+                globalNotifModel.insert(0, {
+                    "summary": summaryText,
+                    "body": bodyText,
+                    "appName": appNameText,
+                    "appIcon": appIconText,
+                    "notifObj": notification
+                });
+            }
 
-			// Only pop up the banner if Quickshell has finished initializing
-			if (root.isServerReady) {
-				root.notifPopupSummary = summaryText !== "" ? summaryText : appNameText;
-				root.notifPopupBody = bodyText;
-				root.notifPopupApp = appNameText;
-				notifPopupTimer.restart();
-			}
-		}
-	}
+            if (root.isServerReady) {
+                root.notifPopupSummary = summaryText !== "" ? summaryText : appNameText;
+                root.notifPopupBody = bodyText;
+                root.notifPopupApp = appNameText;
+                notifPopupTimer.restart();
+            }
+        }
+    }
+
     readonly property bool isDashMode: activeMode === "idle" || activeMode === "hover"
 
     function collapseToIdle() {
@@ -165,70 +146,51 @@ ShellRoot {
         });
     }
 
+    // ========================================================
+    // CENTRALIZED DIMENSIONS RESOLUTION (from NotchConfig)
+    // ========================================================
     readonly property int targetWidth: {
         if (isDashMode && typeof dashMod !== "undefined") {
             return dashMod.implicitWidth;
         }
-        return modeDimensions[activeMode]?.width ?? modeDimensions["idle"].width;
+        return NotchConfig.modeDimensions[activeMode]?.width ?? NotchConfig.modeDimensions["idle"].width;
     }
     
-	readonly property int targetHeight: {
-		if (root.isNotifPopupActive && root.isDashMode) {
-			return 54; // Increase this value (e.g., 52 to 64) for a taller banner
-		}
-		if (activeMode === "transition") return 320;
-        if (activeMode === "calendar") return 280;
-        if (activeMode === "powermenu") return 100;
-        if (activeMode === "battery") return 220;
+    readonly property int targetHeight: {
+        if (root.isNotifPopupActive && root.isDashMode) {
+            return NotchConfig.heightNotifBanner;
+        }
+        if (activeMode === "transition" || activeMode === "calendar" || activeMode === "powermenu" || activeMode === "battery") {
+            return NotchConfig.modeDimensions[activeMode]?.height ?? 220;
+        }
         if (activeMode === "notifications") {
-            if (globalNotifModel.count === 0) return 200;
-            var notifCalcH = 50 + (globalNotifModel.count * 76);
-            return Math.min(480, Math.max(200, notifCalcH));
+            return NotchConfig.calculateNotificationsHeight(globalNotifModel.count);
         }
         if (activeMode === "shelf") {
-            if (typeof shelfMod === "undefined" || shelfMod.calculatedCount === 0) return 220;
-            var shelfCalcH = 66 + (shelfMod.calculatedCount * 48);
-            return Math.min(440, Math.max(180, shelfCalcH));
+            return NotchConfig.calculateShelfHeight(typeof shelfMod !== "undefined" ? shelfMod.calculatedCount : 0);
         }
         if (activeMode === "clipboard") {
-            if (typeof clipMod === "undefined" || clipMod.calculatedCount === 0) return 220;
-            var clipCalcH = 66 + (clipMod.calculatedCount * 48);
-            return Math.min(440, Math.max(180, clipCalcH));
+            return NotchConfig.calculateClipboardHeight(typeof clipMod !== "undefined" ? clipMod.calculatedCount : 0);
         }
         if (activeMode === "recorder") {
-            if (typeof recMod === "undefined") return 225;
-            if (!recMod.recordAudio) return 205;
-            if (recMod.isMicDropdownOpen) return 240 + Math.min(3, 4) * 32;
-            return 245;
+            return typeof recMod !== "undefined" 
+                ? NotchConfig.calculateRecorderHeight(recMod.recordAudio, recMod.isMicDropdownOpen) 
+                : 225;
         }
         if (activeMode === "launcher") {
-            if (launcherMod.calculatedCount === 0 && launcherMod.allApps.length === 0) return 320;
-            var calculatedHeight = 66 + (launcherMod.calculatedCount * 48);
-            return Math.min(420, Math.max(160, calculatedHeight));
+            return NotchConfig.calculateLauncherHeight(launcherMod.calculatedCount, launcherMod.allApps.length);
         }
         if (activeMode === "bluetooth") {
-            var btCount = btMod.filteredDevices.length;
-            if (btCount === 0) return 266;
-
-            var listItemsHeight = 0;
-            for (var i = 0; i < btCount; i++) {
-                var dev = btMod.filteredDevices[i];
-                var expanded = btMod.stateMap[dev.mac] && btMod.stateMap[dev.mac].isExpanded;
-                listItemsHeight += (expanded ? 84 : 48) + 6;
-            }
-            return Math.min(486, Math.max(246, 112 + listItemsHeight));
+            return NotchConfig.calculateBluetoothHeight(btMod.filteredDevices, btMod.stateMap);
         }
         if (activeMode === "wifi") {
-            if (wifiMod.activeTab === "hotspot") return 400;
-            if (!wifiMod.wifiEnabled) return 226;
-            if (wifiMod.model.count === 0) return 286;
-            return Math.min(560, Math.max(200, 176 + wifiMod.listViewContentHeight));
+            return NotchConfig.calculateWifiHeight(wifiMod.activeTab, wifiMod.wifiEnabled, wifiMod.model.count, wifiMod.listViewContentHeight);
         }
-        return modeDimensions[activeMode]?.height ?? modeDimensions["idle"].height;
+        return NotchConfig.modeDimensions[activeMode]?.height ?? NotchConfig.modeDimensions["idle"].height;
     } 
 
-    readonly property int targetRadius: modeDimensions[activeMode]?.radius ?? modeDimensions["idle"].radius
-    readonly property int cornerCurveRadius: 12
+    readonly property int targetRadius: NotchConfig.modeDimensions[activeMode]?.radius ?? NotchConfig.modeDimensions["idle"].radius
+    readonly property int cornerCurveRadius: NotchConfig.cornerCurveRadius
 
     // OSD Engine
     property string osdType: "volume"
@@ -248,8 +210,8 @@ ShellRoot {
         osdHideTimer.restart();
     }
 
-    Timer { id: osdSettleTimer; interval: 150; onTriggered: root.osdReady = true }
-    Timer { id: osdHideTimer; interval: 2000; onTriggered: { if (root.activeMode === "osd") { root.collapseToIdle(); root.osdReady = false; } } }
+    Timer { id: osdSettleTimer; interval: NotchConfig.timerOsdSettle; onTriggered: root.osdReady = true }
+    Timer { id: osdHideTimer; interval: NotchConfig.timerOsdHide; onTriggered: { if (root.activeMode === "osd") { root.collapseToIdle(); root.osdReady = false; } } }
     
     Process {
         id: osdFileReader
@@ -269,11 +231,11 @@ ShellRoot {
         }
     }
 
-    Timer { interval: 50; running: true; repeat: true; onTriggered: if (!osdFileReader.running) osdFileReader.running = true }
+    Timer { interval: NotchConfig.timerPollOsd; running: true; repeat: true; onTriggered: if (!osdFileReader.running) osdFileReader.running = true }
 
     Timer {
         id: workspaceSwitchSettleTimer
-        interval: 1500; repeat: false
+        interval: NotchConfig.timerWorkspacePeek; repeat: false
         onTriggered: {
             if (root.isWorkspacePeeking) {
                 root.isWorkspacePeeking = false;
@@ -317,7 +279,7 @@ ShellRoot {
         anchors.top: true
         implicitWidth: 860
         implicitHeight: 520
-        exclusiveZone: 30
+        exclusiveZone: NotchConfig.baseExclusiveZone
         color: "transparent"
         WlrLayershell.layer: WlrLayer.Overlay
 
@@ -439,8 +401,8 @@ ShellRoot {
                 radius: 0
                 bottomLeftRadius: root.targetRadius
                 bottomRightRadius: root.targetRadius
-                Behavior on width  { NumberAnimation { duration: 400; easing.type: Easing.OutExpo } }
-                Behavior on height { NumberAnimation { duration: 400; easing.type: Easing.OutExpo } }
+                Behavior on width  { NumberAnimation { duration: NotchConfig.animNotchResize; easing.type: Easing.OutExpo } }
+                Behavior on height { NumberAnimation { duration: NotchConfig.animNotchResize; easing.type: Easing.OutExpo } }
 
                 // 1. Persistent Dash Layer
                 Item {
@@ -453,8 +415,8 @@ ShellRoot {
 
                     opacity: root.isDashMode ? 1.0 : 0.0
                     visible: opacity > 0.01
-                    Behavior on height { NumberAnimation { duration: 400; easing.type: Easing.OutExpo } }
-                    Behavior on opacity { NumberAnimation { duration: 90; easing.type: Easing.OutQuad } }
+                    Behavior on height { NumberAnimation { duration: NotchConfig.animNotchResize; easing.type: Easing.OutExpo } }
+                    Behavior on opacity { NumberAnimation { duration: NotchConfig.animDashFade; easing.type: Easing.OutQuad } }
 
                     MainDash { 
                         id: dashMod 
@@ -475,7 +437,7 @@ ShellRoot {
                     opacity: (!root.isDashMode && (notch.height > 35 || root.activeMode === "osd")) ? 1.0 : 0.0
                     visible: opacity > 0.001
                     enabled: !root.isDashMode
-                    Behavior on opacity { NumberAnimation { duration: 100; easing.type: Easing.OutQuad } }
+                    Behavior on opacity { NumberAnimation { duration: NotchConfig.animModulesFade; easing.type: Easing.OutQuad } }
 
                     StackLayout {
                         id: contentStack
@@ -521,7 +483,7 @@ ShellRoot {
 
                 Timer {
                     id: autoCollapseTimer
-                    interval: 60
+                    interval: NotchConfig.timerAutoCollapse
                     repeat: false
                     onTriggered: {
                         if (root.openedViaShortcut) return;

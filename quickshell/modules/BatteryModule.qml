@@ -132,7 +132,7 @@ print(f'{cap}|||{status}|||{e_now:.1f}|||{e_full:.1f}|||{e_design:.1f}|||{health
     }
 
     Timer {
-        interval: 1000
+        interval: 250
         running: root.activeMode === "battery" || root.activeMode === "hover" || root.activeMode === "idle"
         repeat: true
         triggeredOnStart: true

@@ -113,18 +113,38 @@ for f in sorted_files:
 
     RowLayout {
         Layout.fillWidth: true
+        Layout.preferredHeight: 24
+		spacing: 6
+		Layout.leftMargin: 8
+        Layout.rightMargin: 8
+
         Text {
-            text: "Wallpapers (" + Theme.currentThemeName + ")"
-            font.pixelSize: 15; font.bold: true
+            text: "Wallpapers"
+            font.pixelSize: 15
+            font.bold: true
             color: Theme.colors.text_primary ?? "white"
         }
-        Item { Layout.fillWidth: true }
+
         Text {
-            text: wallpaperModel.count > 0 ? (wallpaperCarousel.currentIndex + 1) + " / " + wallpaperModel.count : ""
+            visible: wallpaperModel.count > 0
+            text: "(" + (wallpaperCarousel.currentIndex + 1) + " / " + wallpaperModel.count + ")"
             font.pixelSize: 12
+            font.bold: true
             color: Theme.colors.text_secondary ?? "#565f89"
+            Layout.alignment: Qt.AlignVCenter
         }
-    }
+
+        Item { Layout.fillWidth: true }
+
+        Text {
+            text: "Active: " + Theme.currentThemeName
+            font.family: "Inter"
+            font.pixelSize: 11
+            font.bold: true
+            color: Theme.colors.accent ?? "#7aa2f7"
+        }
+	}
+
 
     Item {
         Layout.fillWidth: true

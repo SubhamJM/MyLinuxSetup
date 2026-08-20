@@ -13,7 +13,6 @@ ColumnLayout {
     property alias transitionGrid: transitionGrid
 
     readonly property var allTransitions: [
-        { "name": "simple",  "label": "Instant", "type": "simple" },
         { "name": "fade",    "label": "Fade",    "type": "fade" },
         { "name": "left",    "label": "Left",    "type": "left" },
         { "name": "right",   "label": "Right",   "type": "right" },
@@ -43,7 +42,9 @@ ColumnLayout {
     // Header
     RowLayout {
         Layout.fillWidth: true
-        Layout.preferredHeight: 24
+		Layout.preferredHeight: 24
+		Layout.leftMargin: 8
+        Layout.rightMargin: 8
 
         Text {
             text: "Wallpaper Transitions"
@@ -155,15 +156,8 @@ ColumnLayout {
                             ctx.lineWidth = 1.6;
                             ctx.lineCap = "round";
 
-                            if (type === "simple") {
-                                // Hard Cut Split
-                                ctx.beginPath();
-                                ctx.moveTo(w * 0.5, 2);
-                                ctx.lineTo(w * 0.5, h - 2);
-                                ctx.stroke();
-                                ctx.fillRect(2, 2, w * 0.45, h - 4);
-                            } 
-                            else if (type === "fade") {
+                            
+                            if (type === "fade") {
                                 // Smooth Opacity Gradient
                                 var grad = ctx.createLinearGradient(2, 0, w - 2, 0);
                                 grad.addColorStop(0, "transparent");

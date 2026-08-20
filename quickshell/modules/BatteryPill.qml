@@ -16,18 +16,20 @@ Item {
     readonly property var battery: UPower.displayDevice
     readonly property var powerProfiles: QsServices.PowerProfiles
     readonly property var pywal: QsServices.Pywal
-    readonly property real percentage: battery?.percentage ?? 0
+    
+    // Readiness check to prevent initial zero-state / null-device visual glitches
+    readonly property bool isReady: battery != null && (battery.percentage !== undefined && battery.percentage > 0)
+    readonly property real percentage: isReady ? battery.percentage : 1.0
     readonly property int batteryLevel: Math.round(percentage * 100)
     readonly property bool isCharging: battery?.state === UPowerDevice.Charging
     readonly property bool isFullyCharged: battery?.state === UPowerDevice.FullyCharged
     readonly property bool isPluggedIn: isCharging || isFullyCharged
-    readonly property bool isWarning: batteryLevel <= 25 && batteryLevel > 15
-    readonly property bool isLow: batteryLevel <= 15
+    readonly property bool isWarning: isReady && batteryLevel <= 25 && batteryLevel > 15
+    readonly property bool isLow: isReady && batteryLevel <= 15
     readonly property bool isCritical: isLow && !isPluggedIn
 
     // Caelestia-flavoured "emphasized decelerate" motion curve — smooth, no bounce.
-    // (Material 3 emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1))
-    readonly property var motionCurve: [0.05, 0.7, 0.1, 1, 1, 1]
+    readonly property var motionCurve: (typeof NotchConfig !== "undefined" && NotchConfig.motionCurve) ? NotchConfig.motionCurve : [0.05, 0.7, 0.1, 1, 1, 1]
 
     // Track state changes for animations
     property bool wasPluggedIn: false
@@ -37,7 +39,6 @@ Item {
     // Detect plug-in event
     onIsPluggedInChanged: {
         if (isPluggedIn && !wasPluggedIn) {
-            // Just plugged in - trigger expansion animation
             justPluggedIn = true
             showExpandedMode = true
             liquidFillAnim.restart()
@@ -58,8 +59,9 @@ Item {
 
     // Colors
     readonly property color normalColor: {
-        if (isLow) return pywal.error ?? "#f44336"
-        if (isWarning) return pywal.warning ?? "#e0af68"
+        if (!isReady) return Theme.colors.text_primary ?? "#c0caf5"
+        if (isLow) return pywal?.error ?? "#f44336"
+        if (isWarning) return pywal?.warning ?? "#e0af68"
         return Theme.colors.text_primary ?? "#c0caf5"
     }
 
@@ -76,7 +78,7 @@ Item {
     Item {
         id: batteryContainer
         anchors.centerIn: parent
-        width: showExpandedMode ? expandedPill.width : normalBattery.width
+        width: showExpandedMode ? expandedPill.width : Math.max(normalBattery.implicitWidth, 54)
         height: 20
 
         Behavior on width {
@@ -95,7 +97,7 @@ Item {
             anchors.centerIn: parent
             spacing: 6
             visible: !showExpandedMode
-            opacity: showExpandedMode ? 0 : 1
+            opacity: (!showExpandedMode && root.isReady) ? 1.0 : 0.0
 
             Behavior on opacity {
                 NumberAnimation { duration: 200; easing.type: Easing.BezierCurve; easing.bezierCurve: root.motionCurve }
@@ -104,7 +106,7 @@ Item {
             // Percentage text
             Text {
                 anchors.verticalCenter: parent.verticalCenter
-                text: batteryLevel + "%"
+                text: (root.isReady ? batteryLevel : "--") + "%"
                 font.family: "Inter"
                 font.pixelSize: 12
                 font.weight: (isWarning || isLow) ? Font.Bold : Font.Medium
@@ -152,7 +154,7 @@ Item {
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
                         anchors.margins: 1.5
-                        width: Math.max(0, (parent.width - 3) * root.percentage)
+                        width: Math.max(0, (parent.width - 3) * (root.isReady ? root.percentage : 0))
                         radius: 2
                         color: compactBatteryColor
 
@@ -208,7 +210,7 @@ Item {
                     visible: isPluggedIn && !showExpandedMode
                     anchors.centerIn: batteryBody
                     text: "󱐋"
-                    font.family: "Material Design Icons"
+                    font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 11
                     color: Theme.colors.bg ?? "#16161e"
                     opacity: 0.9
@@ -225,8 +227,6 @@ Item {
 
         // ═══════════════════════════════════════════════════════════════
         // STATE 2: Just plugged in — quickshell-style charge pill
-        // Dark island background + accent glow + underline progress,
-        // matching the rest of the shell instead of a default solid-fill capsule.
         // ═══════════════════════════════════════════════════════════════
         Rectangle {
             id: expandedPill
@@ -236,7 +236,7 @@ Item {
             radius: 11
             visible: showExpandedMode
             opacity: showExpandedMode ? 1 : 0
-            color: Qt.rgba(pywal.surfaceDim.r, pywal.surfaceDim.g, pywal.surfaceDim.b, 0.94)
+            color: Qt.rgba(pywal?.surfaceDim?.r ?? 0.1, pywal?.surfaceDim?.g ?? 0.12, pywal?.surfaceDim?.b ?? 0.18, 0.94)
             border.width: 1
             border.color: Qt.rgba(chargingColor.r, chargingColor.g, chargingColor.b, 0.45)
 
@@ -244,7 +244,7 @@ Item {
                 NumberAnimation { duration: 260; easing.type: Easing.BezierCurve; easing.bezierCurve: root.motionCurve }
             }
 
-            // Soft breathing glow ring — subtle, not bouncy
+            // Soft breathing glow ring
             Rectangle {
                 anchors.fill: parent
                 radius: parent.radius
@@ -268,8 +268,8 @@ Item {
                 spacing: 6
 
                 Text {
-                    text: ""
-                    font.family: "Material Design Icons"
+                    text: "󱐋"
+                    font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 13
                     color: chargingColor
                     anchors.verticalCenter: parent.verticalCenter
@@ -283,7 +283,7 @@ Item {
                 }
 
                 Text {
-                    text: batteryLevel + "%"
+                    text: (root.isReady ? batteryLevel : "--") + "%"
                     font.family: "Inter"
                     font.pixelSize: 13
                     font.weight: Font.DemiBold
@@ -293,7 +293,7 @@ Item {
                 }
             }
 
-            // Progress underline — fills to charge level instead of a full solid capsule
+            // Progress underline
             Rectangle {
                 id: underlineTrack
                 anchors.left: parent.left
@@ -313,7 +313,6 @@ Item {
                     radius: parent.radius
                     color: chargingColor
 
-                    // Liquid fill animation
                     SequentialAnimation {
                         id: liquidFillAnim
 
@@ -321,7 +320,7 @@ Item {
                             target: liquidFillBg
                             property: "width"
                             from: 0
-                            to: underlineTrack.width * root.percentage
+                            to: underlineTrack.width * (root.isReady ? root.percentage : 0)
                             duration: 900
                             easing.type: Easing.BezierCurve
                             easing.bezierCurve: root.motionCurve

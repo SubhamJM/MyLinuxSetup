@@ -108,9 +108,12 @@ Item {
 
     property bool btIslandExpanded: false
     property string btIslandBattery: ""
-    Timer { id: btPopupTimer; interval: 4000; onTriggered: dash.btIslandExpanded = false }
-    Timer { id: powerPopupTimer; interval: 4000; onTriggered: dash.powerIslandExpanded = false }
-    Timer { id: netPopupTimer; interval: 4000; onTriggered: dash.netIslandExpanded = false }
+    Timer { id: btPopupTimer; interval: NotchConfig.timerBtPopup; onTriggered: dash.btIslandExpanded = false }
+    Timer { id: powerPopupTimer; interval: NotchConfig.timerPowerPopup; onTriggered: dash.powerIslandExpanded = false }
+    Timer { id: netPopupTimer; interval: NotchConfig.timerNetPopup; onTriggered: dash.netIslandExpanded = false }
+
+    Timer { id: netTextTimer; interval: NotchConfig.timerIslandText; onTriggered: triggerNetText = false }
+    Timer { id: btTextTimer; interval: NotchConfig.timerIslandText; onTriggered: triggerBtText = false }
 
     Connections {
         target: typeof battMod !== "undefined" ? battMod : null
@@ -136,9 +139,6 @@ Item {
             }
         }
     }
-
-    Timer { id: netTextTimer; interval: 3500; onTriggered: triggerNetText = false }
-    Timer { id: btTextTimer; interval: 3500; onTriggered: triggerBtText = false }
 
     Timer {
         interval: 3000
