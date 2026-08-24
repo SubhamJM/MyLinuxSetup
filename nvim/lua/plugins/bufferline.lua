@@ -7,55 +7,113 @@ vim.pack.add({
 vim.opt.termguicolors = true
 
 require("bufferline").setup({
-	options = {
-		mode = "buffers", -- set to "tabs" to only show tabpages instead
-		themable = true, -- allows highlight groups to be overriden i.e. sets highlights as default
-		numbers = "none", -- | "ordinal" | "buffer_id" | "both" | function({ ordinal, id, lower, raise }): string,
-		close_command = "Bdelete! %d", -- can be a string | function, see "Mouse actions"
-		buffer_close_icon = "✗",
-		close_icon = "✗",
-		path_components = 1, -- Show only the file name without the directory
-		modified_icon = "●",
-		left_trunc_marker = "",
-		right_trunc_marker = "",
-		max_name_length = 30,
-		max_prefix_length = 30, -- prefix used when a buffer is de-duplicated
-		tab_size = 21,
-		diagnostics = false,
-		diagnostics_update_in_insert = false,
-		color_icons = true,
-		show_buffer_icons = true,
-		show_buffer_close_icons = true,
-		show_close_icon = true,
-		persist_buffer_sort = true, -- whether or not custom sorted buffers should persist
-		separator_style = { "│", "│" }, -- | "thick" | "thin" | { 'any', 'any' },
-		enforce_regular_tabs = true,
-		always_show_bufferline = true,
-		show_tab_indicators = false,
-		indicator = {
-			-- icon = '▎', -- this should be omitted if indicator style is not 'icon'
-			style = "none", -- Options: 'icon', 'underline', 'none'
-		},
-		icon_pinned = "󰐃",
-		minimum_padding = 1,
-		maximum_padding = 5,
-		maximum_length = 15,
-		sort_by = "insert_at_end",
-	},
-	highlights = {
-		separator = {
-			fg = "#434C5E",
-		},
-		buffer_selected = {
-			bold = true,
-			italic = false,
-		},
-		-- separator_selected = {},
-		-- tab_selected = {},
-		-- background = {},
-		-- indicator_selected = {},
-		-- fill = {},
-	},
+    options = {
+        mode = "buffers",
+        themable = true,
+        -- auto_toggle_bufferline = true, -- Automatically hides the bar when only 1 buffer / alpha is open
+        custom_filter = function(buf_number)
+            local ft = vim.bo[buf_number].filetype
+            if ft == "alpha" or ft == "dashboard" or ft == "neo-tree" then
+                return false
+            end
+            return true
+        end,
+        numbers = "none",
+        close_command = "Bdelete! %d",
+        buffer_close_icon = "✗",
+        close_icon = "✗",
+        path_components = 1,
+        modified_icon = "●",
+        left_trunc_marker = "",
+        right_trunc_marker = "",
+        max_name_length = 30,
+        max_prefix_length = 30,
+        tab_size = 21,
+        diagnostics = false,
+        color_icons = true,
+        show_buffer_icons = true,
+        show_buffer_close_icons = false,
+        show_close_icon = false,
+        persist_buffer_sort = true,
+        separator_style = "thin",
+        enforce_regular_tabs = true,
+        always_show_bufferline = true,
+        show_tab_indicators = false,
+        indicator = {
+            style = "none",
+        },
+        icon_pinned = "󰐃",
+        minimum_padding = 1,
+        maximum_padding = 5,
+        maximum_length = 15,
+        sort_by = "insert_at_end",
+    },
+    highlights = {
+        fill = {
+            bg = "NONE",
+        },
+        background = {
+            fg = "#6c7086",
+            bg = "NONE",
+        },
+        buffer_selected = {
+            fg = "#cdd6f4",
+            bg = "NONE",
+            bold = true,
+            italic = false,
+        },
+        buffer_visible = {
+            fg = "#6c7086",
+            bg = "NONE",
+        },
+        close_button = {
+            bg = "NONE",
+        },
+        close_button_visible = {
+            bg = "NONE",
+        },
+        close_button_selected = {
+            bg = "NONE",
+        },
+        tab = {
+            bg = "NONE",
+        },
+        tab_selected = {
+            bg = "NONE",
+        },
+        tab_close = {
+            bg = "NONE",
+        },
+        separator = {
+            fg = "#313244",
+            bg = "NONE",
+        },
+        separator_selected = {
+            fg = "#313244",
+            bg = "NONE",
+        },
+        separator_visible = {
+            fg = "#313244",
+            bg = "NONE",
+        },
+        modified = {
+            bg = "NONE",
+        },
+        modified_visible = {
+            bg = "NONE",
+        },
+        modified_selected = {
+            bg = "NONE",
+        },
+        indicator_selected = {
+            fg = "NONE",
+            bg = "NONE",
+        },
+        offset_separator = {
+            fg = "#313244",
+            bg = "NONE",
+        },
+    },
 })
 
 vim.keymap.set("n", "<Tab>", "<cmd>BufferLineCycleNext<CR>", { desc = "Next Buffer" })

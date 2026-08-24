@@ -33,6 +33,27 @@ if [[ -d "$THEMES_DIR/$TARGET_THEME" ]]; then
 
 	cat "$HOME/.config/fish/base.toml" "$THEMES_DIR/$TARGET_THEME/starship-colors.toml" > "$HOME/.config/starship.toml"
 
+	# Map active theme to the Neovim colorscheme name
+	case "$TARGET_THEME" in
+	  "Catppuccin")  NVIM_THEME="catppuccin-mocha" ;;
+	  "Gruvbox")     NVIM_THEME="gruvbox" ;;
+	  "Tokyo-night") NVIM_THEME="tokyonight-night" ;;
+	  "Rose-pine")   NVIM_THEME="rose-pine" ;;
+	  "Nord")        NVIM_THEME="nord" ;;
+	  "Onedark")     NVIM_THEME="onedark" ;;
+	  "Dracula")     NVIM_THEME="dracula" ;;
+	  "Everforest")  NVIM_THEME="everforest" ;;
+	  "Monokai-pro") NVIM_THEME="monokai-pro" ;;
+	  "Ayu-mirage")  NVIM_THEME="ayu-mirage" ;;
+	  "E-ink")       NVIM_THEME="e-ink" ;;
+	  "Emerald")     NVIM_THEME="emerald" ;;
+	  *)             NVIM_THEME="catppuccin" ;;
+	esac
+
+	# 1. Save current colorscheme to a dedicated state file
+	mkdir -p "$HOME/.local/state/nvim"
+	echo "$NVIM_THEME" > "$HOME/.local/state/nvim/active_colorscheme"
+
     # Reload components
 	# 3. LIVE RELOAD ALL RUNNING KITTY INSTANCES (Paste here)
 	kitty @ set-colors --all "$HOME/.config/kitty/kitty-colors.conf" 2>/dev/null
@@ -41,6 +62,7 @@ if [[ -d "$THEMES_DIR/$TARGET_THEME" ]]; then
 	killall -s SIGUSR1 fish 2>/dev/null
     hyprctl reload
     killall -SIGUSR1 kitty 2>/dev/null
+	killall -SIGUSR1 nvim 2>/dev/null
 
     # Read active transition (fallback to "simple" if file doesn't exist)
     TRANSITION="simple"
