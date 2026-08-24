@@ -1,0 +1,92 @@
+add_newline = false
+palette = "custom"
+
+format = """
+$cmd_duration $directory$git_branch
+  $character"""
+
+[fill]
+symbol = '-'
+style = 'fg:surface2'
+
+[character]
+success_symbol = "[ ](bold fg:overlay0)"
+error_symbol = "[ ](bold fg:red)"
+
+[package]
+disabled = true
+
+[git_branch]
+style = "bg:surface1"
+symbol = "󰘬"
+truncation_length = 12
+truncation_symbol = ""
+format = " 󰜥 [](bold fg:surface1)[$symbol $branch(:$remote_branch)](fg:text bg:surface1)[ ](bold fg:surface1)"
+
+[git_commit]
+commit_hash_length = 4
+tag_symbol = " "
+
+[git_state]
+format = '[\($state( $progress_current of $progress_total)\)]($style) '
+cherry_pick = "[🍒 PICKING](bold red)"
+
+[git_status]
+conflicted = " 🏳 "
+ahead = " 🏎💨 "
+behind = " 😰 "
+diverged = " 😵 "
+untracked = " 🤷 ‍"
+stashed = " 📦 "
+modified = " 📝 "
+staged = '[++\($count\)](green)'
+renamed = " ✍️ "
+deleted = " 🗑 "
+
+[hostname]
+ssh_only = false
+format = "[•$hostname](bg:surface1 bold fg:text)[](bold fg:surface1)"
+trim_at = ".companyname.com"
+disabled = false
+
+[line_break]
+disabled = false
+
+[memory_usage]
+disabled = true
+threshold = -1
+symbol = " "
+style = "bold dimmed green"
+
+[time]
+disabled = true
+format = '🕙[\[ $time \]]($style) '
+time_format = "%T"
+
+[username]
+style_user = "bold bg:surface1 fg:text"
+style_root = "red bold"
+format = "[](bold fg:surface1)[$user]($style)"
+disabled = false
+show_always = true
+
+[directory]
+home_symbol = " "
+read_only = "  "
+style = "bg:blue fg:crust"
+truncation_length = 2
+truncation_symbol = ".../"
+format = '[](bold fg:blue)[󰉋 → $path]($style)[](bold fg:blue)'
+
+[directory.substitutions]
+"Desktop" = "  "
+"Documents" = "  "
+"Downloads" = "  "
+"Music" = " 󰎈 "
+"Pictures" = "  "
+"Videos" = "  "
+"GitHub" = " 󰊤 "
+
+[cmd_duration]
+min_time = 0
+format = '[](bold fg:surface1)[󰪢 $duration](bold bg:surface1 fg:text)[](bold fg:surface1)'

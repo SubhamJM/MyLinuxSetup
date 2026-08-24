@@ -438,49 +438,57 @@ Item {
             width: centerRow.implicitWidth
             height: 26
 
+            // Reusable visualizer component
+            component EqualizerVisualizer: Row {
+                id: eqRoot
+                property bool mirrored: false
+                spacing: 2
+                anchors.verticalCenter: parent.verticalCenter
+                opacity: (dash.isMediaPlaying && root.activeMode === "idle") ? 1.0 : 0.0
+                
+                property int targetWidth: (dash.isMediaPlaying && root.activeMode === "idle") ? (4 * 2.5 + 3 * 2) : 0
+                width: targetWidth
+                visible: width > 0
+                clip: true
+                
+                Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+
+                readonly property var barHeights: [8, 14, 10, 13]
+                readonly property var barDurations: [340, 260, 310, 290]
+
+                Repeater {
+                    model: 4
+                    delegate: Rectangle {
+                        width: 2.5
+                        radius: 1.25
+                        color: Theme.colors.accent ?? "#7aa2f7"
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        // Mirror bar index pattern on the right side for symmetrical bouncing
+                        property int effectiveIdx: eqRoot.mirrored ? (3 - index) : index
+                        property real targetA: eqRoot.barHeights[effectiveIdx]
+                        property real targetB: eqRoot.barHeights[(effectiveIdx + 2) % 4]
+
+                        height: targetA
+
+                        SequentialAnimation on height {
+                            running: dash.isMediaPlaying && root.activeMode === "idle"
+                            loops: Animation.Infinite
+                            NumberAnimation { to: targetB; duration: eqRoot.barDurations[effectiveIdx]; easing.type: Easing.InOutSine }
+                            NumberAnimation { to: targetA; duration: eqRoot.barDurations[(effectiveIdx + 1) % 4]; easing.type: Easing.InOutSine }
+                        }
+                    }
+                }
+            }
+
             Row {
                 id: centerRow
                 anchors.centerIn: parent
                 spacing: 8
 
-                // Audio Visualizer
-                Row {
-                    id: audioVisualizer
-                    spacing: 2
-                    anchors.verticalCenter: parent.verticalCenter
-                    opacity: (dash.isMediaPlaying && root.activeMode === "idle") ? 1.0 : 0.0
-                    
-                    property int targetWidth: (dash.isMediaPlaying && root.activeMode === "idle") ? (5 * 2.5 + 4 * 2) : 0
-                    width: targetWidth
-                    visible: width > 0
-                    clip: true
-                    
-                    Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
-
-                    property var barHeights: [10, 14, 8, 12, 6]
-                    property var barDurations: [380, 280, 340, 310, 360]
-
-                    Repeater {
-                        model: 5
-                        delegate: Rectangle {
-                            width: 2.5
-                            radius: 1.25
-                            color: Theme.colors.accent ?? "#7aa2f7"
-                            anchors.verticalCenter: parent.verticalCenter
-
-                            property real targetA: audioVisualizer.barHeights[index]
-                            property real targetB: audioVisualizer.barHeights[(index + 2) % 5]
-
-                            height: targetA
-
-                            SequentialAnimation on height {
-                                running: dash.isMediaPlaying && root.activeMode === "idle"
-                                loops: Animation.Infinite
-                                NumberAnimation { to: targetB; duration: audioVisualizer.barDurations[index]; easing.type: Easing.InOutSine }
-                                NumberAnimation { to: targetA; duration: audioVisualizer.barDurations[(index + 3) % 5]; easing.type: Easing.InOutSine }
-                            }
-                        }
-                    }
+                // Left Audio Visualizer
+                EqualizerVisualizer {
+                    mirrored: false
                 }
 
                 // Album Art
@@ -544,20 +552,25 @@ Item {
 
                 // Clock
                 Text {
-					id: clockText
-					text: {
-						var h = clock.date.getHours() % 12 || 12;
-						var m = (clock.date.getMinutes() < 10 ? "0" : "") + clock.date.getMinutes();
-						return (h < 10 ? "0" : "") + h + ":" + m;
-					}
-					color: Theme.colors.text_primary ?? "white"
-					font.family: "Inter"
-					font.pixelSize: 14
-					font.bold: true
-					font.features: { "tnum": 1 }
-					renderType: Text.QtRendering
-					anchors.verticalCenter: parent.verticalCenter
-				}
+                    id: clockText
+                    text: {
+                        var h = clock.date.getHours() % 12 || 12;
+                        var m = (clock.date.getMinutes() < 10 ? "0" : "") + clock.date.getMinutes();
+                        return (h < 10 ? "0" : "") + h + ":" + m;
+                    }
+                    color: Theme.colors.text_primary ?? "white"
+                    font.family: "Inter"
+                    font.pixelSize: 14
+                    font.bold: true
+                    font.features: { "tnum": 1 }
+                    renderType: Text.QtRendering
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+
+                // Right Audio Visualizer (Mirrored)
+                EqualizerVisualizer {
+                    mirrored: true
+                }
 
                 // Separator dot
                 Text {

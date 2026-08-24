@@ -1,0 +1,10 @@
+{
+  "bg": "#16161e",
+  "card_bg": "#1f2335",
+  "hover_bg": "#292e42",
+  "border": "#282e44",
+  "border_hover": "#7aa2f7",
+  "text_primary": "#c0caf5",
+  "text_secondary": "#565f89",
+  "accent": "#7aa2f7"
+}

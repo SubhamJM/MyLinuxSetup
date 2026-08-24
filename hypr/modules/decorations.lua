@@ -13,9 +13,9 @@ hl.config({
     },
     general = {
         -- Gaps and border
-        gaps_in = 8,
+        gaps_in = 6,
         gaps_out = 10,
-        gaps_workspaces = 50,
+        gaps_workspaces = 20,
 
         border_size = 0,
 
@@ -40,13 +40,17 @@ hl.config({
         rounding_power = 2.5,
         rounding = 18,
 
+		active_opacity = 0.95,
+		inactive_opacity = 0.90,
+
+
         blur = {
             enabled = true,
             xray = false,
             special = false,
             new_optimizations = true,
-            size = 10,
-            passes = 3,
+            size = 20,
+            passes = 4,
             brightness = 1,
             noise = 0.05,
             contrast = 0.89,
@@ -59,8 +63,8 @@ hl.config({
         },
         shadow = {
             enabled = true,
-            range = 20,
-            render_power = 3,
+            range = 25,
+            render_power = 4,
             color = "rgba(1a1a1aee)"
 		},
         -- Dim

@@ -1,1 +1,1 @@
-/home/ricing/.config/themes/Rose-Pine/theme-name.txt
+/home/ricing/.config/themes/Catppuccin/theme-name.txt

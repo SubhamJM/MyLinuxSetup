@@ -1,13 +1,15 @@
 if status is-interactive
     # Starship custom prompt
-    command -v starship &> /dev/null && starship init fish | source
+    if command -v starship >/dev/null 2>&1
+        starship init fish | source
+    end
 
     # Direnv + Zoxide
-    command -v direnv &> /dev/null && direnv hook fish | source
-    command -v zoxide &> /dev/null && zoxide init fish --cmd cd | source
+    command -v direnv >/dev/null 2>&1 && direnv hook fish | source
+    command -v zoxide >/dev/null 2>&1 && zoxide init fish | source
 
     # Better ls
-    command -v eza &> /dev/null && alias ls='eza --icons --group-directories-first -1'
+    command -v eza >/dev/null 2>&1 && alias ls='eza --icons --group-directories-first -1'
 
     # Abbrs
     abbr lg 'lazygit'
@@ -40,10 +42,12 @@ if status is-interactive
         echo -en "\e]133;A\e\\"
     end
 
+	# Redraw prompt on custom user signal (SIGUSR1)
+    function _reload_theme_prompt --on-signal SIGUSR1
+        commandline -f repaint
+    end
+
     # Custom fish config
     set -q XDG_CONFIG_HOME && set -l cConf $XDG_CONFIG_HOME/caelestia || set -l cConf $HOME/.config/caelestia
     source $cConf/user-config.fish 2> /dev/null
 end
-
-zoxide init fish | source
-

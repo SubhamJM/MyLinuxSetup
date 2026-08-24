@@ -21,55 +21,6 @@ hl.window_rule({
 -- ==================================================
 
 hl.layer_rule({
-    name = "waybar-blur",
-    match = { namespace = "waybar" },
-    blur = true,
-    ignore_alpha = 0.0
-})
-
-hl.layer_rule({
-    name = "rofi-blur",
-    match = { namespace = "rofi" },
-    blur = true,
-    ignore_alpha = 0.0
-})
-
-hl.layer_rule({
-    name = "logout-blur",
-    match = { namespace = "logout_dialog" },
-    blur = true,
-    ignore_alpha = 0.0
-})
-
-hl.layer_rule({
-    name = "logout-blur-fallback",
-    match = { namespace = "wlogout" },
-    blur = true,
-    ignore_alpha = 0.0
-})
-
-hl.layer_rule({
-    name = "swaync-blur",
-    match = { namespace = "swaync-control-center" },
-    blur = true,
-    ignore_alpha = 0.0
-})
-
-hl.layer_rule({
-    name = "caelestia-dashboard-blur",
-    match = { namespace = "caelestia-dashboard" },
-    blur = true,
-    ignore_alpha = 0.0
-})
-
-hl.layer_rule({
-    name = "fuzzel-blur",
-    match = { namespace = "launcher" },
-    blur = true,
-    ignore_alpha = 0.2
-})
-
-hl.layer_rule({
     name = "quickshell-popups-no-blur",
     match = { namespace = "qs_popup" },
     blur = true
@@ -338,52 +289,6 @@ apply_window_rule({
 
 
 -- --- Tag Executions ---
-apply_window_rule({
-  match = { tag = "multimedia" },
-  no_blur = true,
-  opacity = 1.0
-})
-
-apply_window_rule({
-  match = { tag = "browser" },
-  opacity = "0.99 0.8"
-})
-
-apply_window_rule({
-  match = { tag = "projects" },
-  opacity = "0.9 0.8"
-})
-
-apply_window_rule({
-  match = { tag = "im" },
-  opacity = "0.94 0.86"
-})
-
-apply_window_rule({
-  match = { tag = "file-manager" },
-  opacity = "0.9 0.8"
-})
-
-apply_window_rule({
-  match = { tag = "terminal" },
-  opacity = "0.9 0.7"
-})
-
-apply_window_rule({
-  match = { tag = "wallpaper" },
-  float = true,
-  center = true,
-  size = "(monitor_w*0.7) (monitor_h*0.7)",
-  opacity = "0.9 0.7"
-})
-
-apply_window_rule({
-  match = { tag = "settings" },
-  float = true,
-  center = true,
-  size = "(monitor_w*0.7) (monitor_h*0.7)",
-  opacity = "0.8 0.7"
-})
 
 apply_window_rule({
   match = { tag = "viewer" },

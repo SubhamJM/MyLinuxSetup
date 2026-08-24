@@ -38,10 +38,10 @@ QtObject {
     // 4. STATIC NOTCH BASE DIMENSIONS
     // ==========================================
     readonly property int cornerCurveRadius: 12     // Outer inverse wing curves radius
-    readonly property int baseExclusiveZone: 30     // Wayland layer shell exclusive reservation
+    readonly property int baseExclusiveZone: 32     // Wayland layer shell exclusive reservation
 
     readonly property var modeDimensions: ({
-        "idle":          { width: 120, height: 30,  radius: 12 },
+        "idle":          { width: 120, height: 32,  radius: 12 },
         "hover":         { width: 460, height: 46,  radius: 12 },
         "launcher":      { width: 460, height: 360, radius: 12 },
         "theme":         { width: 440, height: 280, radius: 12 },

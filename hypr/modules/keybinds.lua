@@ -3,7 +3,7 @@
 ---------------------
            
 local terminal    = "kitty"
-local fileManager = "dolphin"
+local fileManager = "kitty --class yazi -e yazi"
 local menu = "hyprlauncher"
 local browser = "zen-browser"
 
