@@ -212,7 +212,7 @@ ColumnLayout {
         Layout.fillHeight: true
         clip: true
         spacing: 6
-        model: btModule.filteredDevices
+        model: btModule.isEnabled ? btModule.filteredDevices : []
 
         Item {
             anchors.fill: parent

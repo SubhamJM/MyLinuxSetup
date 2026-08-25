@@ -112,8 +112,9 @@ ShellRoot {
         }
     }
 
-    function regainFocus() {
-        if (activeMode === "launcher") launcherMod.searchInput.forceActiveFocus();
+	function regainFocus() {
+		if (activeMode === "switcher" && typeof switcherMod !== "undefined") switcherMod.forceActiveFocus();
+		else if (activeMode === "launcher") launcherMod.searchInput.forceActiveFocus();
         else if (activeMode === "theme") themeMod.themeList.forceActiveFocus();
         else if (activeMode === "wallpaper") wallMod.wallpaperGrid.forceActiveFocus();
         else if (activeMode === "transition") transMod.transitionGrid.forceActiveFocus();
@@ -271,7 +272,36 @@ ShellRoot {
     GlobalShortcut { name: "toggleClipboardNotch"; onPressed: root.switchMode("clipboard", true) }
     GlobalShortcut { name: "toggleShelfNotch"; onPressed: root.switchMode("shelf", true) }
     GlobalShortcut { name: "toggleNotificationsNotch"; onPressed: root.switchMode("notifications", true) }
-    GlobalShortcut { name: "toggleMusicInfoNotch"; onPressed: if (typeof dashMod !== "undefined") dashMod.showMusicInfo = !dashMod.showMusicInfo }
+	GlobalShortcut { name: "toggleMusicInfoNotch"; onPressed: if (typeof dashMod !== "undefined") dashMod.showMusicInfo = !dashMod.showMusicInfo }
+	GlobalShortcut { 
+        name: "cycleWindowNext"
+        onPressed: {
+            if (root.activeMode !== "switcher") {
+                root.switchMode("switcher", true);
+                switcherMod.refreshClients();
+            } else {
+                switcherMod.cycleNext();
+            }
+        }
+    }
+
+    GlobalShortcut { 
+        name: "cycleWindowPrev"
+        onPressed: {
+            if (root.activeMode === "switcher") {
+                switcherMod.cyclePrev();
+            }
+        }
+	}
+
+	GlobalShortcut {
+        name: "confirmAltRelease"
+        onPressed: {
+            if (root.activeMode === "switcher") {
+                switcherMod.activateSelected();
+            }
+        }
+    }
 
     // Main Notch Panel
     PanelWindow {
@@ -459,7 +489,8 @@ ShellRoot {
                                 case "calendar":      return 10;
                                 case "clipboard":     return 11;
                                 case "shelf":         return 12;
-                                case "notifications": return 13;
+								case "notifications": return 13;
+								case "switcher":      return 14;
                                 default:              return 0;
                             }
                         }
@@ -477,7 +508,8 @@ ShellRoot {
                         CalendarModule     { id: calMod }
                         ClipboardModule    { id: clipMod }
                         ShelfModule        { id: shelfMod }
-                        NotificationModule { id: notifMod }
+						NotificationModule { id: notifMod }
+						WindowSwitcher     { id: switcherMod }
                     }
                 }
 

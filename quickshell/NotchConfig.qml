@@ -42,7 +42,8 @@ QtObject {
 
     readonly property var modeDimensions: ({
         "idle":          { width: 120, height: 32,  radius: 12 },
-        "hover":         { width: 460, height: 46,  radius: 12 },
+		"hover":         { width: 460, height: 46,  radius: 12 },
+		"switcher":      { width: 800, height: 420, radius: 14 },
         "launcher":      { width: 460, height: 360, radius: 12 },
         "theme":         { width: 440, height: 280, radius: 12 },
         "wallpaper":     { width: 760, height: 320, radius: 12 },

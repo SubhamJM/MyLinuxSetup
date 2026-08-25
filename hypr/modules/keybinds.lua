@@ -22,6 +22,8 @@ hl.bind(mainMod .. " + SHIFT + M", hl.dsp.global("quickshell:toggleMusicInfoNotc
 hl.bind(mainMod .. " + grave", hl.dsp.global("quickshell:resetNotchToIdle"))
 hl.bind(mainMod .. " + D", hl.dsp.global("quickshell:toggleShelfNotch"))
 hl.bind(mainMod .. " + N", hl.dsp.global("quickshell:toggleNotificationsNotch"))
+hl.bind("ALT + TAB", hl.dsp.global("quickshell:cycleWindowNext"))
+hl.bind("ALT + SHIFT + TAB", hl.dsp.global("quickshell:cycleWindowPrev"))
 hl.bind("Print", hl.dsp.exec_cmd('grimblast --notify copysave area'))
 
 -- Example binds, see https://wiki.hypr.land/Configuring/Basics/Binds/ for more
