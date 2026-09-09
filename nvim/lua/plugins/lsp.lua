@@ -29,18 +29,36 @@ vim.lsp.config("lua_ls", {
 -- Python
 ------------------------------------------------------------
 
+local capabilities = vim.lsp.protocol.make_client_capabilities()
+-- Enable didChangeWatchedFiles dynamic registration
+capabilities.workspace = capabilities.workspace or {}
+capabilities.workspace.didChangeWatchedFiles = {
+    dynamicRegistration = true,
+}
+
+-- If using blink.cmp capabilities helper:
+if pcall(require, "blink.cmp") then
+    capabilities = require("blink.cmp").get_lsp_capabilities(capabilities)
+end
+
 vim.lsp.config("pyright", {
-    -- You must add these if nvim-lspconfig is not installed:
     cmd = { "pyright-langserver", "--stdio" },
     filetypes = { "python" },
     root_markers = { "pyproject.toml", "setup.py", "setup.cfg", "requirements.txt", ".git" },
-    
+    capabilities = capabilities,
     settings = {
         python = {
             pythonPath = vim.fn.getcwd() .. "/.venv/bin/python",
+            analysis = {
+                autoSearchPaths = true,
+                useLibraryCodeForTypes = true,
+                diagnosticMode = "workspace",
+            },
         },
     },
 })
+
+vim.keymap.set("n", "<leader>lr", "<cmd>lsp restart<cr>", { desc = "Restart LSP" })
 
 
 ------------------------------------------------------------
