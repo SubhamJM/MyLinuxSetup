@@ -197,7 +197,7 @@ ShellRoot {
         if (activeMode === "idle") {
             root.openedViaShortcut = false;
         } else if (activeMode === "wifi") {
-            if (!wifiMod.activeTab || wifiMod.activeTab === "") wifiMod.activeTab = "wifi";
+            wifiMod.activeTab = "wifi";
             wifiMod.refreshStatus();
         } else if (activeMode === "bluetooth" && typeof Bluetooth !== "undefined" && Bluetooth.defaultAdapter) {
             Bluetooth.defaultAdapter.discovering = true;
@@ -484,17 +484,7 @@ while True:
     GlobalShortcut { name: "toggleCheatsheetNotch"; onPressed: root.switchMode("cheatsheet", true) }
     GlobalShortcut { 
         name: "toggleWifiNotch"
-        onPressed: {
-            wifiMod.activeTab = "wifi";
-            root.switchMode("wifi", true);
-        }
-    }
-    GlobalShortcut { 
-        name: "toggleHotspotNotch"
-        onPressed: {
-            wifiMod.activeTab = "hotspot";
-            root.switchMode("wifi", true);
-        }
+        onPressed: root.switchMode("wifi", true)
     }
     GlobalShortcut { 
         name: "toggleBluetoothNotch"
@@ -702,9 +692,17 @@ while True:
                 id: extendedHoverArea
                 anchors.fill: notch
                 anchors.margins: -20
-                hoverEnabled: false
+                hoverEnabled: true
                 acceptedButtons: Qt.NoButton
-                enabled: false
+                enabled: root.isPopupMode
+                onContainsMouseChanged: {
+                    if (containsMouse) {
+                        root.openedViaShortcut = false;
+                        autoCollapseTimer.stop();
+                    } else if (!notchHoverHandler.hovered && !root.openedViaShortcut) {
+                        autoCollapseTimer.restart();
+                    }
+                }
             }
 
             // Notch Surface
@@ -831,7 +829,10 @@ while True:
                     interval: NotchConfig.timerAutoCollapse
                     repeat: false
                     onTriggered: {
-                        if (!notchHoverHandler.hovered && root.activeMode === "hover") {
+                        if (root.openedViaShortcut) return;
+                        if (typeof shelfMod !== "undefined" && shelfMod.isDragging) return;
+                        if (typeof utilMod !== "undefined" && (utilMod.isDraggingVolume || utilMod.isDraggingBrightness)) return;
+                        if (!notchHoverHandler.hovered && (!extendedHoverArea.enabled || !extendedHoverArea.containsMouse) && root.activeMode !== "idle" && root.activeMode !== "osd" && !root.isWorkspacePeeking) {
                             root.collapseToIdle();
                         }
                     }
@@ -841,15 +842,17 @@ while True:
                     id: notchHoverHandler
                     enabled: root.activeMode !== "osd"
                     onHoveredChanged: {
+                        console.log("NOTCH HOVERED:", hovered, "activeMode:", root.activeMode, "openedViaShortcut:", root.openedViaShortcut);
                         if (typeof shelfMod !== "undefined" && shelfMod.isDragging) return;
                         if (typeof utilMod !== "undefined" && (utilMod.isDraggingVolume || utilMod.isDraggingBrightness)) return;
                         if (hovered) {
                             autoCollapseTimer.stop();
+                            root.openedViaShortcut = false;
                             root.isWorkspacePeeking = false;
                             if (root.activeMode === "idle") root.activeMode = "hover";
                         } else {
-                            if (root.activeMode === "hover") {
-                                root.collapseToIdle();
+                            if (!root.openedViaShortcut && root.isPopupMode && (!extendedHoverArea.enabled || !extendedHoverArea.containsMouse)) {
+                                autoCollapseTimer.restart();
                             }
                         }
                     }

@@ -180,31 +180,6 @@ ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 10
 
-                // Tactile Back to Utility Button
-                Rectangle {
-                    width: 28; height: 28; radius: 8
-                    color: btBackMouse.containsMouse ? btModule.colCardHover : "transparent"
-                    border.width: 1
-                    border.color: Qt.rgba(1, 1, 1, 0.08)
-                    scale: btBackMouse.pressed ? 0.90 : 1.0
-                    Behavior on scale { NumberAnimation { duration: 90 } }
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: "󰁍"
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 14
-                        color: btModule.colText
-                    }
-
-                    MouseArea {
-                        id: btBackMouse
-                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-                        onClicked: root.switchMode("utility", true)
-                    }
-                }
-
                 // Squircle Icon Badge
                 Rectangle {
                     width: 38
@@ -244,10 +219,9 @@ ColumnLayout {
                         }
                         font.family: "Noto Sans"
                         font.pixelSize: 13
-                        font.weight: Font.DemiBold
+                        font.bold: true
                         color: btModule.colText
                         elide: Text.ElideRight
-                        renderType: Text.NativeRendering
                     }
 
                     Text {
@@ -261,7 +235,6 @@ ColumnLayout {
                         font.pixelSize: 11
                         color: btModule.colSubtext
                         elide: Text.ElideRight
-                        renderType: Text.NativeRendering
                     }
                 }
 
@@ -307,10 +280,9 @@ ColumnLayout {
                                 if (btModule.primaryConnectedDevice) return "CONNECTED";
                                 return "READY";
                             }
-                            font.family: "Noto Sans"
+                            font.family: "Rubik"
                             font.pixelSize: 10
-                            font.weight: Font.Bold
-                            renderType: Text.NativeRendering
+                            font.bold: true
                             color: {
                                 if (!btModule.isEnabled) return btModule.colMuted;
                                 if (btModule.primaryConnectedDevice) return btModule.colGreen;
@@ -348,10 +320,9 @@ ColumnLayout {
                         }
                         Text {
                             text: btModule.primaryConnectedDevice ? btModule.primaryConnectedDevice.mac : (btModule.adapter ? (btModule.adapter.name || "hci0") : "hci0")
-                            font.family: "Noto Sans"
+                            font.family: "Rubik"
                             font.pixelSize: 10
                             font.weight: Font.Medium
-                            renderType: Text.NativeRendering
                             color: btModule.colSubtext
                             anchors.verticalCenter: parent.verticalCenter
                         }
@@ -389,10 +360,10 @@ ColumnLayout {
                         }
                         Text {
                             text: btModule.primaryBattery
-                            font.family: "Noto Sans"
+                            font.family: "Rubik"
                             font.pixelSize: 10
-                            font.weight: Font.Bold
-                            renderType: Text.NativeRendering
+                            font.bold: true
+                            font.features: ({ "tnum": 1 })
                             color: {
                                 var pct = parseInt(btModule.primaryBattery) || 100;
                                 return pct < 20 ? btModule.colRed : btModule.colText;
@@ -423,10 +394,9 @@ ColumnLayout {
                         }
                         Text {
                             text: btModule.isDiscovering ? "Scanning" : (btModule.primaryConnectedDevice ? "High Quality" : "Bluetooth 5.3")
-                            font.family: "Noto Sans"
+                            font.family: "Rubik"
                             font.pixelSize: 10
                             font.weight: Font.Medium
-                            renderType: Text.NativeRendering
                             color: btModule.isDiscovering ? btModule.colAccent : btModule.colSubtext
                             anchors.verticalCenter: parent.verticalCenter
                         }
@@ -454,8 +424,7 @@ ColumnLayout {
                 text: "Paired Devices"
                 font.family: "Noto Sans"
                 font.pixelSize: 13
-                font.weight: Font.DemiBold
-                renderType: Text.NativeRendering
+                font.bold: true
                 color: btModule.colText
                 anchors.verticalCenter: parent.verticalCenter
             }
@@ -472,10 +441,9 @@ ColumnLayout {
                     id: countText
                     anchors.centerIn: parent
                     text: btModule.filteredDevices.length + " paired"
-                    font.family: "Noto Sans"
+                    font.family: "Rubik"
                     font.pixelSize: 10
                     font.weight: Font.Medium
-                    renderType: Text.NativeRendering
                     color: btModule.colSubtext
                 }
             }
@@ -510,10 +478,9 @@ ColumnLayout {
                 }
                 Text {
                     text: btModule.isDiscovering ? "Scanning" : "Scan"
-                    font.family: "Noto Sans"
+                    font.family: "Rubik"
                     font.pixelSize: 11
-                    font.weight: Font.DemiBold
-                    renderType: Text.NativeRendering
+                    font.bold: true
                     color: btModule.isDiscovering ? btModule.colSurface : btModule.colText
                     anchors.verticalCenter: parent.verticalCenter
                 }
@@ -603,8 +570,7 @@ ColumnLayout {
                     text: !btModule.isEnabled ? "Bluetooth is Turned Off" : (btModule.isDiscovering ? "Searching for devices..." : "No paired devices found")
                     font.family: "Noto Sans"
                     font.pixelSize: 12
-                    font.weight: Font.DemiBold
-                    renderType: Text.NativeRendering
+                    font.bold: true
                     color: btModule.colSubtext
                 }
             }
@@ -680,8 +646,7 @@ ColumnLayout {
                             color: modelData.connected ? btModule.colAccent : btModule.colText
                             font.family: "Noto Sans"
                             font.pixelSize: 13
-                            font.weight: Font.DemiBold
-                            renderType: Text.NativeRendering
+                            font.bold: true
                             elide: Text.ElideRight
                             Layout.fillWidth: true
                         }
@@ -711,10 +676,9 @@ ColumnLayout {
 
                                     Text {
                                         text: modelData.connected ? "Connected" : (modelData.paired ? "Paired" : "Available")
-                                        font.family: "Noto Sans"
-                                        font.pixelSize: 10
+                                        font.family: "Rubik"
+                                        font.pixelSize: 9
                                         font.weight: Font.Medium
-                                        renderType: Text.NativeRendering
                                         color: modelData.connected ? btModule.colGreen : btModule.colSubtext
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
@@ -739,10 +703,10 @@ ColumnLayout {
 
                             Text {
                                 text: devCard.batteryLvl
-                                font.family: "Noto Sans"
+                                font.family: "Rubik"
                                 font.pixelSize: 10
-                                font.weight: Font.DemiBold
-                                renderType: Text.NativeRendering
+                                font.bold: true
+                                font.features: ({ "tnum": 1 })
                                 color: (devCard.batteryPct >= 0 && devCard.batteryPct < 20) ? btModule.colRed : btModule.colText
                                 anchors.verticalCenter: parent.verticalCenter
                             }
@@ -791,10 +755,9 @@ ColumnLayout {
                             }
                             Text {
                                 text: modelData.connected ? "Disconnect" : "Connect"
-                                font.family: "Noto Sans"
+                                font.family: "Rubik"
                                 font.pixelSize: 11
-                                font.weight: Font.DemiBold
-                                renderType: Text.NativeRendering
+                                font.bold: true
                                 color: modelData.connected ? btModule.colRed : btModule.colSurface
                                 anchors.verticalCenter: parent.verticalCenter
                             }
@@ -833,10 +796,9 @@ ColumnLayout {
                             }
                             Text {
                                 text: "Forget"
-                                font.family: "Noto Sans"
+                                font.family: "Rubik"
                                 font.pixelSize: 11
                                 font.weight: Font.Medium
-                                renderType: Text.NativeRendering
                                 color: btModule.colText
                                 anchors.verticalCenter: parent.verticalCenter
                             }
@@ -862,10 +824,9 @@ ColumnLayout {
                         Text {
                             anchors.centerIn: parent
                             text: modelData.mac
-                            font.family: "Noto Sans"
-                            font.pixelSize: 10
+                            font.family: "Rubik"
+                            font.pixelSize: 9
                             font.weight: Font.Medium
-                            renderType: Text.NativeRendering
                             color: btModule.colSubtext
                         }
                     }

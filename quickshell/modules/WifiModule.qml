@@ -387,130 +387,209 @@ ColumnLayout {
     // ========================================================
     Rectangle {
         Layout.fillWidth: true
-        Layout.preferredHeight: 64
-        radius: 20
+        Layout.preferredHeight: 92
+        radius: 28
         color: wifiMaster.colCard
 
         Behavior on color { ColorAnimation { duration: 200 } }
 
-        RowLayout {
+        ColumnLayout {
             anchors.fill: parent
-            anchors.leftMargin: 12
-            anchors.rightMargin: 12
-            spacing: 10
+            anchors.margins: 14
+            spacing: 8
 
-            // Tactile Back to Utility Button
-            Rectangle {
-                width: 28; height: 28; radius: 8
-                color: wifiBackMouse.containsMouse ? wifiMaster.colCardHover : "transparent"
-                border.width: 1
-                border.color: Qt.rgba(1, 1, 1, 0.08)
-                scale: wifiBackMouse.pressed ? 0.90 : 1.0
-                Behavior on scale { NumberAnimation { duration: 90 } }
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "󰁍"
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 14
-                    color: wifiMaster.colText
-                }
-
-                MouseArea {
-                    id: wifiBackMouse
-                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                    hoverEnabled: true
-                    onClicked: root.switchMode("utility", true)
-                }
-            }
-
-            // Expressive squircle icon badge
-            Rectangle {
-                width: 38; height: 38; radius: 14
-                color: wifiMaster.isConnected ? Qt.alpha(wifiMaster.colAccent, 0.22) : wifiMaster.colChipBg
-                Behavior on color { ColorAnimation { duration: 200 } }
-
-                MaterialSymbol {
-                    anchors.centerIn: parent
-                    iconSize: 20
-                    fill: wifiMaster.isConnected ? 1 : 0
-                    text: (typeof dashMod !== "undefined" && dashMod.activeNetType === "eth") ? "lan" :
-                          (wifiMaster.isConnected ? "wifi" : "wifi_off")
-                    color: wifiMaster.isConnected ? wifiMaster.colAccent : wifiMaster.colMuted
-                }
-            }
-
-            // Connection Name & Subtitle (Speed + IP)
-            ColumnLayout {
+            // Top Row: Icon + Names + Online Pill
+            RowLayout {
                 Layout.fillWidth: true
-                spacing: 1
+                spacing: 12
 
-                Text {
-                    Layout.fillWidth: true
-                    text: {
-                        if (typeof dashMod === "undefined") return "Network status";
-                        if (dashMod.activeNetName === "") return dashMod.activeNetType === "eth" ? "Ethernet disconnected" : "Wi-Fi disconnected";
-                        return dashMod.activeNetName;
+                // Expressive squircle icon badge
+                Rectangle {
+                    width: 42; height: 42; radius: 16
+                    color: wifiMaster.isConnected ? Qt.alpha(wifiMaster.colAccent, 0.22) : wifiMaster.colChipBg
+                    Behavior on color { ColorAnimation { duration: 200 } }
+                    Behavior on radius { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
+
+                    MaterialSymbol {
+                        anchors.centerIn: parent
+                        iconSize: 22
+                        fill: wifiMaster.isConnected ? 1 : 0
+                        text: (typeof dashMod !== "undefined" && dashMod.activeNetType === "eth") ? "lan" :
+                              (wifiMaster.isConnected ? "wifi" : "wifi_off")
+                        color: wifiMaster.isConnected ? wifiMaster.colAccent : wifiMaster.colMuted
                     }
-                    font.family: "Noto Sans"
-                    font.pixelSize: 13
-                    font.weight: Font.DemiBold
-                    color: wifiMaster.colText
-                    elide: Text.ElideRight
-                    renderType: Text.NativeRendering
                 }
 
-                Text {
+                // Connection Name & Speed
+                ColumnLayout {
                     Layout.fillWidth: true
-                    text: {
-                        if (typeof dashMod === "undefined" || dashMod.activeNetName === "") return "No network connection";
-                        var typeStr = dashMod.activeNetType === "eth" ? "Wired Ethernet" : "Wi-Fi";
-                        var speedStr = wifiMaster.netSpeed !== "" ? (" • " + wifiMaster.netSpeed) : "";
-                        var ipStr = wifiMaster.netIp !== "" ? (" • " + wifiMaster.netIp) : "";
-                        return typeStr + speedStr + ipStr;
-                    }
-                    font.family: "Noto Sans"
-                    font.pixelSize: 10
-                    font.weight: Font.Normal
-                    color: wifiMaster.colSubtext
-                    elide: Text.ElideRight
-                    renderType: Text.NativeRendering
-                }
-            }
+                    spacing: 2
 
-            // Status Badge Pill
-            Rectangle {
-                Layout.preferredHeight: 24
-                Layout.preferredWidth: statusRow.implicitWidth + 14
-                radius: 12
-                color: wifiMaster.isConnected ? Qt.alpha(wifiMaster.colGreen, 0.16) : Qt.alpha(wifiMaster.colMuted, 0.15)
-
-                RowLayout {
-                    id: statusRow
-                    anchors.centerIn: parent
-                    spacing: 5
-
-                    Rectangle {
-                        width: 6; height: 6; radius: 3
-                        color: wifiMaster.isConnected ? wifiMaster.colGreen : wifiMaster.colMuted
-
-                        SequentialAnimation on opacity {
-                            running: wifiMaster.isConnected
-                            loops: Animation.Infinite
-                            NumberAnimation { from: 0.6; to: 1.0; duration: 1000; easing.type: Easing.InOutSine }
-                            NumberAnimation { from: 1.0; to: 0.6; duration: 1000; easing.type: Easing.InOutSine }
+                    Text {
+                        Layout.fillWidth: true
+                        text: {
+                            if (typeof dashMod === "undefined") return "Network status";
+                            if (dashMod.activeNetName === "") return dashMod.activeNetType === "eth" ? "Ethernet disconnected" : "Wi-Fi disconnected";
+                            return dashMod.activeNetName;
                         }
+                        font.family: "Noto Sans"
+                        font.pixelSize: 14
+                        font.weight: Font.DemiBold
+                        color: wifiMaster.colText
+                        elide: Text.ElideRight
+                        renderType: Text.NativeRendering
                     }
 
                     Text {
-                        text: wifiMaster.isConnected ? "Connected" : "Disconnected"
+                        Layout.fillWidth: true
+                        text: {
+                            if (typeof dashMod === "undefined" || dashMod.activeNetName === "") return "No network connection";
+                            var typeStr = dashMod.activeNetType === "eth" ? "Wired Ethernet" : "Wi-Fi";
+                            var speedStr = wifiMaster.netSpeed !== "" ? (" • " + wifiMaster.netSpeed) : "";
+                            return typeStr + speedStr;
+                        }
                         font.family: "Noto Sans"
-                        font.pixelSize: 10
-                        font.weight: Font.DemiBold
-                        color: wifiMaster.isConnected ? wifiMaster.colGreen : wifiMaster.colMuted
+                        font.pixelSize: 11
+                        font.weight: Font.Normal
+                        color: wifiMaster.colSubtext
+                        elide: Text.ElideRight
                         renderType: Text.NativeRendering
                     }
                 }
+
+                // Aurora Green Online Capsule Pill
+                Rectangle {
+                    visible: wifiMaster.isConnected
+                    Layout.preferredHeight: 26
+                    Layout.preferredWidth: statusRow.implicitWidth + 18
+                    radius: 13
+                    color: Qt.alpha(wifiMaster.colGreen, 0.20)
+
+                    RowLayout {
+                        id: statusRow
+                        anchors.centerIn: parent
+                        spacing: 5
+
+                        Rectangle {
+                            width: 6; height: 6; radius: 3
+                            color: wifiMaster.colGreen
+
+                            SequentialAnimation on opacity {
+                                loops: Animation.Infinite
+                                NumberAnimation { from: 0.6; to: 1.0; duration: 1000; easing.type: Easing.InOutSine }
+                                NumberAnimation { from: 1.0; to: 0.6; duration: 1000; easing.type: Easing.InOutSine }
+                            }
+                        }
+
+                        Text {
+                            text: "ONLINE"
+                            font.family: "Rubik"
+                            font.pixelSize: 10
+                            font.weight: Font.Bold
+                            font.letterSpacing: 0.5
+                            color: wifiMaster.colGreen
+                            renderType: Text.NativeRendering
+                        }
+                    }
+                }
+            }
+
+            // Bottom Row: Chips
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                // IPv4 Address Chip
+                Rectangle {
+                    visible: wifiMaster.netIp !== ""
+                    Layout.preferredHeight: 24
+                    Layout.preferredWidth: ipChipRow.implicitWidth + 14
+                    radius: 8
+                    color: wifiMaster.colChipBg
+
+                    RowLayout {
+                        id: ipChipRow
+                        anchors.centerIn: parent
+                        spacing: 5
+
+                        MaterialSymbol {
+                            iconSize: 12
+                            text: "public"
+                            color: wifiMaster.colMuted
+                        }
+
+                        Text {
+                            text: wifiMaster.netIp
+                            font.family: "Rubik"
+                            font.pixelSize: 11
+                            font.weight: Font.Medium
+                            color: wifiMaster.colSubtext
+                            renderType: Text.NativeRendering
+                        }
+                    }
+                }
+
+                // Interface Device Chip
+                Rectangle {
+                    visible: wifiMaster.netDev !== ""
+                    Layout.preferredHeight: 24
+                    Layout.preferredWidth: devChipRow.implicitWidth + 14
+                    radius: 8
+                    color: wifiMaster.colChipBg
+
+                    RowLayout {
+                        id: devChipRow
+                        anchors.centerIn: parent
+                        spacing: 5
+
+                        MaterialSymbol {
+                            iconSize: 12
+                            text: "developer_board"
+                            color: wifiMaster.colMuted
+                        }
+
+                        Text {
+                            text: wifiMaster.netDev
+                            font.family: "Noto Sans"
+                            font.pixelSize: 11
+                            font.weight: Font.Medium
+                            color: wifiMaster.colSubtext
+                            renderType: Text.NativeRendering
+                        }
+                    }
+                }
+
+                // Cloudflare WARP / Gateway Chip
+                Rectangle {
+                    visible: wifiMaster.netWarp !== "" || wifiMaster.netGw !== ""
+                    Layout.preferredHeight: 24
+                    Layout.preferredWidth: secChipRow.implicitWidth + 14
+                    radius: 8
+                    color: wifiMaster.colChipBg
+
+                    RowLayout {
+                        id: secChipRow
+                        anchors.centerIn: parent
+                        spacing: 5
+
+                        MaterialSymbol {
+                            iconSize: 12
+                            text: wifiMaster.netWarp !== "" ? "security" : "router"
+                            color: wifiMaster.netWarp !== "" ? wifiMaster.colAccent : wifiMaster.colMuted
+                        }
+
+                        Text {
+                            text: wifiMaster.netWarp !== "" ? "WARP Active" : ("GW: " + wifiMaster.netGw)
+                            font.family: "Noto Sans"
+                            font.pixelSize: 11
+                            font.weight: Font.Medium
+                            color: wifiMaster.netWarp !== "" ? wifiMaster.colAccent : wifiMaster.colSubtext
+                            renderType: Text.NativeRendering
+                        }
+                    }
+                }
+
+                Item { Layout.fillWidth: true }
             }
         }
     }
@@ -613,8 +692,8 @@ ColumnLayout {
 
                 Text {
                     text: "Available Networks"
-                    font.family: "Noto Sans"
-                    font.pixelSize: 13
+                    font.family: "Readex Pro"
+                    font.pixelSize: 14
                     font.weight: Font.DemiBold
                     color: wifiMaster.colText
                     renderType: Text.NativeRendering
@@ -632,7 +711,7 @@ ColumnLayout {
                         id: countText
                         anchors.centerIn: parent
                         text: wifiModel.count + (wifiModel.count === 1 ? " network" : " networks")
-                        font.family: "Noto Sans"
+                        font.family: "Rubik"
                         font.pixelSize: 10
                         font.weight: Font.Medium
                         color: wifiMaster.colSubtext
@@ -832,7 +911,7 @@ ColumnLayout {
                                         id: bandLabel
                                         anchors.centerIn: parent
                                         text: typeof band !== "undefined" ? band : ""
-                                        font.family: "Noto Sans"
+                                        font.family: "Rubik"
                                         font.pixelSize: 10
                                         font.weight: Font.Medium
                                         color: inUse ? wifiMaster.colAccent : wifiMaster.colMuted
@@ -851,7 +930,7 @@ ColumnLayout {
                                         id: rateLabel
                                         anchors.centerIn: parent
                                         text: typeof rate !== "undefined" ? rate : ""
-                                        font.family: "Noto Sans"
+                                        font.family: "Rubik"
                                         font.pixelSize: 10
                                         font.weight: Font.Normal
                                         color: wifiMaster.colSubtext
@@ -906,7 +985,7 @@ ColumnLayout {
 
                                 Text {
                                     text: signal + "%"
-                                    font.family: "Noto Sans"
+                                    font.family: "Rubik"
                                     font.pixelSize: 11
                                     font.weight: Font.Bold
                                     color: wifiMaster.colSubtext
@@ -1209,55 +1288,50 @@ ColumnLayout {
         spacing: 12
 
         Rectangle {
-            Layout.fillWidth: true; Layout.fillHeight: true; radius: 24
+            Layout.fillWidth: true; Layout.fillHeight: true; radius: 26
             color: wifiMaster.colCard
-            clip: true
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: 14
-                spacing: 10
+                anchors.margins: 16
+                spacing: 14
 
                 RowLayout {
                     Layout.fillWidth: true; spacing: 12
                     Rectangle {
-                        width: 36; height: 36; radius: 13
+                        width: 42; height: 42; radius: 16
                         color: wifiMaster.hotspotActive ? Qt.alpha(wifiMaster.colAccent, 0.25) : wifiMaster.colChipBg
                         Behavior on color { ColorAnimation { duration: 200 } }
                         MaterialSymbol { 
                             anchors.centerIn: parent
                             text: "wifi_tethering"
-                            iconSize: 18
+                            iconSize: 22
                             fill: wifiMaster.hotspotActive ? 1 : 0
                             color: wifiMaster.hotspotActive ? wifiMaster.colAccent : wifiMaster.colSubtext
                         }
                     }
                     ColumnLayout {
-                        Layout.fillWidth: true; spacing: 1
+                        Layout.fillWidth: true; spacing: 2
                         Text { 
                             text: "Personal Hotspot"
                             font.family: "Noto Sans"
                             font.weight: Font.DemiBold
-                            font.pixelSize: 13
+                            font.pixelSize: 14
                             color: wifiMaster.colText
                             renderType: Text.NativeRendering
                         }
                         Text { 
                             text: wifiMaster.hotspotActive ? "Broadcasting live" : "Inactive"
                             font.family: "Noto Sans"
-                            font.pixelSize: 10
+                            font.pixelSize: 11
                             color: wifiMaster.hotspotActive ? wifiMaster.colAccent : wifiMaster.colMuted
                             renderType: Text.NativeRendering
                         }
                     }
-                    MaterialSwitch {
-                        checked: wifiMaster.hotspotActive
-                        onToggled: wifiMaster.toggleHotspot(!wifiMaster.hotspotActive)
-                    }
                 }
 
                 ColumnLayout {
-                    Layout.fillWidth: true; spacing: 3
+                    Layout.fillWidth: true; spacing: 4
                     Text { 
                         text: "Hotspot Name (SSID)"
                         font.family: "Noto Sans"
@@ -1268,7 +1342,7 @@ ColumnLayout {
                     }
                     TextField {
                         id: hotspotSsidField
-                        Layout.fillWidth: true; Layout.preferredHeight: 34
+                        Layout.fillWidth: true; Layout.preferredHeight: 38
                         text: wifiMaster.hotspotSsid
                         color: wifiMaster.colText
                         font.family: "Noto Sans"
@@ -1278,13 +1352,13 @@ ColumnLayout {
                         onTextChanged: wifiMaster.hotspotSsid = text
                         background: Rectangle { 
                             color: wifiMaster.colChipBg
-                            radius: 10
+                            radius: 12
                         }
                     }
                 }
 
                 ColumnLayout {
-                    Layout.fillWidth: true; spacing: 3
+                    Layout.fillWidth: true; spacing: 4
                     Text { 
                         text: "Password (min. 8 characters)"
                         font.family: "Noto Sans"
@@ -1297,7 +1371,7 @@ ColumnLayout {
                         Layout.fillWidth: true; spacing: 8
                         TextField {
                             id: hotspotPassField
-                            Layout.fillWidth: true; Layout.preferredHeight: 34
+                            Layout.fillWidth: true; Layout.preferredHeight: 38
                             text: wifiMaster.hotspotPass
                             echoMode: wifiMaster.hotspotShowPassword ? TextInput.Normal : TextInput.Password
                             color: wifiMaster.colText
@@ -1308,16 +1382,16 @@ ColumnLayout {
                             onTextChanged: wifiMaster.hotspotPass = text
                             background: Rectangle { 
                                 color: wifiMaster.colChipBg
-                                radius: 10
+                                radius: 12
                             }
                         }
                         Rectangle {
-                            Layout.preferredWidth: 34; Layout.preferredHeight: 34; radius: 10
+                            Layout.preferredWidth: 38; Layout.preferredHeight: 38; radius: 12
                             color: eyeArea.containsMouse ? wifiMaster.colCardHover : wifiMaster.colChipBg
                             MaterialSymbol { 
                                 anchors.centerIn: parent
                                 text: wifiMaster.hotspotShowPassword ? "visibility" : "visibility_off"
-                                iconSize: 17
+                                iconSize: 18
                                 color: wifiMaster.colSubtext
                             }
                             MouseArea { id: eyeArea; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; hoverEnabled: true; onClicked: wifiMaster.hotspotShowPassword = !wifiMaster.hotspotShowPassword }
@@ -1328,8 +1402,7 @@ ColumnLayout {
                 Item { Layout.fillHeight: true }
 
                 Rectangle {
-                    Layout.fillWidth: true; Layout.preferredHeight: 38; radius: 12
-                    Layout.bottomMargin: 2
+                    Layout.fillWidth: true; Layout.preferredHeight: 42; radius: 16
                     color: wifiMaster.hotspotActive ? wifiMaster.colRed : (startArea.containsMouse ? Qt.lighter(wifiMaster.colAccent, 1.1) : wifiMaster.colAccent)
                     Behavior on color { ColorAnimation { duration: 150 } }
 
@@ -1337,13 +1410,13 @@ ColumnLayout {
                         anchors.centerIn: parent; spacing: 8
                         MaterialSymbol { 
                             text: wifiMaster.hotspotActive ? "power_settings_new" : "wifi_tethering"
-                            iconSize: 16
+                            iconSize: 17
                             color: wifiMaster.hotspotActive ? "#ffffff" : wifiMaster.colSurface
                         }
                         Text { 
                             text: wifiMaster.hotspotActive ? "Stop Hotspot" : "Start Hotspot"
                             font.family: "Noto Sans"
-                            font.weight: Font.DemiBold
+                            font.bold: true
                             font.pixelSize: 12
                             color: wifiMaster.hotspotActive ? "#ffffff" : wifiMaster.colSurface
                             renderType: Text.NativeRendering

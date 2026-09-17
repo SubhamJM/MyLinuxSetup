@@ -330,29 +330,6 @@ ColumnLayout {
         Layout.fillWidth: true
         spacing: 8
 
-        Rectangle {
-            width: 26; height: 26; radius: 8
-            color: shelfBackMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
-            border.width: 1
-            border.color: Theme.colors.border ?? "#16161e"
-            scale: shelfBackMouse.pressed ? 0.90 : 1.0
-            Behavior on scale { NumberAnimation { duration: 90 } }
-
-            Text {
-                anchors.centerIn: parent
-                text: "󰁍"
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 14
-                color: Theme.colors.text_primary ?? "#c0caf5"
-            }
-            MouseArea {
-                id: shelfBackMouse
-                anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                hoverEnabled: true
-                onClicked: root.switchMode("utility", true)
-            }
-        }
-
         Text {
             text: "󰉍"
             font.family: "JetBrainsMono Nerd Font"

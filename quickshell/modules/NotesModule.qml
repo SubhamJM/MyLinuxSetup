@@ -296,7 +296,13 @@ Item {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
-                        onClicked: root.switchMode("utility", true)
+                        onClicked: {
+                            if (root.previousExpandedMode === "utility") {
+                                root.switchMode("utility", true);
+                            } else {
+                                root.collapseToIdle();
+                            }
+                        }
                     }
                 }
 
