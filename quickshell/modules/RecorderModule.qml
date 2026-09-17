@@ -159,6 +159,24 @@ except Exception as e:
         Layout.fillWidth: true
         spacing: 8
 
+        Rectangle {
+            width: 26; height: 26; radius: 8
+            color: recBackMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
+            border.width: 1
+            border.color: Theme.colors.border ?? "#16161e"
+            Text {
+                anchors.centerIn: parent
+                text: "󰁍"
+                font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14
+                color: Theme.colors.text_primary ?? "white"
+            }
+            MouseArea {
+                id: recBackMouse
+                anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                onClicked: root.switchMode("utility", true)
+            }
+        }
+
         Text {
             text: "Screen Recorder"
             font.pixelSize: 15

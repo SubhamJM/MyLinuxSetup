@@ -33,11 +33,13 @@ QtObject {
         transitionLoader.running = true;
     }
 
+    Component.onCompleted: theme.reload()
+
     property Timer pollTimer: Timer {
-        interval: 1000
+        interval: 10000
         running: true
         repeat: true
-        triggeredOnStart: true
+        triggeredOnStart: false
         onTriggered: theme.reload()
     }
 

@@ -298,6 +298,24 @@ ColumnLayout {
             anchors.fill: parent; anchors.margins: 10; spacing: 10
             
             Rectangle {
+                width: 26; height: 26; radius: 8
+                color: wifiBackMouse.containsMouse ? (Theme.colors.hover_bg ?? wifiMaster.cSurface1) : "transparent"
+                border.width: 1
+                border.color: Theme.colors.border ?? wifiMaster.cBase
+                Text {
+                    anchors.centerIn: parent
+                    text: "󰁍"
+                    font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14
+                    color: Theme.colors.text_primary ?? wifiMaster.cText
+                }
+                MouseArea {
+                    id: wifiBackMouse
+                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                    onClicked: root.switchMode("utility", true)
+                }
+            }
+
+            Rectangle {
                 width: 28; height: 28; radius: 14
                 color: Theme.colors.accent ?? wifiMaster.cBlue
                 opacity: 0.15

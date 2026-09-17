@@ -54,6 +54,8 @@ ShellRoot {
         onTriggered: root.isServerReady = true
     }
 
+    property bool dndEnabled: false
+
     // Native D-Bus Notification Server
     NotificationServer {
         id: notifServer
@@ -85,7 +87,7 @@ ShellRoot {
                 });
             }
 
-            if (root.isServerReady) {
+            if (root.isServerReady && !root.dndEnabled) {
                 root.notifPopupSummary = summaryText !== "" ? summaryText : appNameText;
                 root.notifPopupBody = bodyText;
                 root.notifPopupApp = appNameText;
@@ -115,12 +117,14 @@ ShellRoot {
 	function regainFocus() {
 		if (activeMode === "switcher" && typeof switcherMod !== "undefined") switcherMod.forceActiveFocus();
 		else if (activeMode === "launcher") launcherMod.searchInput.forceActiveFocus();
-        else if (activeMode === "theme") themeMod.themeList.forceActiveFocus();
+        else if (activeMode === "theme" && typeof themeMod !== "undefined") themeMod.forceThemeFocus();
         else if (activeMode === "wallpaper") wallMod.wallpaperGrid.forceActiveFocus();
         else if (activeMode === "transition") transMod.transitionGrid.forceActiveFocus();
         else if (activeMode === "clipboard" && typeof clipMod !== "undefined") clipMod.searchInput.forceActiveFocus();
         else if (activeMode === "shelf" && typeof shelfMod !== "undefined") shelfMod.forceShelfFocus();
         else if (activeMode === "powermenu" && typeof powerMod !== "undefined") powerMod.forceActiveFocus();
+        else if (activeMode === "notes" && typeof notesMod !== "undefined") notesMod.forceNotesFocus();
+        else if (activeMode === "cheatsheet" && typeof cheatsheetMod !== "undefined") cheatsheetMod.forceSearchFocus();
     }
 
     onActiveModeChanged: {
@@ -142,6 +146,7 @@ ShellRoot {
         Qt.callLater(() => {
             root.regainFocus();
             if (activeMode !== "launcher") launcherMod.searchInput.text = "";
+            if (activeMode !== "theme" && typeof themeMod !== "undefined") themeMod.resetSearch();
             if (activeMode !== "clipboard" && typeof clipMod !== "undefined") clipMod.searchInput.text = "";
             if (activeMode !== "shelf" && typeof shelfMod !== "undefined") shelfMod.searchInput.text = "";
         });
@@ -154,6 +159,9 @@ ShellRoot {
         if (isDashMode && typeof dashMod !== "undefined") {
             return dashMod.implicitWidth;
         }
+        if (activeMode === "notes" && typeof notesMod !== "undefined" && notesMod.isWideMode) {
+            return 820;
+        }
         return NotchConfig.modeDimensions[activeMode]?.width ?? NotchConfig.modeDimensions["idle"].width;
     }
     
@@ -161,7 +169,10 @@ ShellRoot {
         if (root.isNotifPopupActive && root.isDashMode) {
             return NotchConfig.heightNotifBanner;
         }
-        if (activeMode === "transition" || activeMode === "calendar" || activeMode === "powermenu" || activeMode === "battery") {
+        if (activeMode === "cheatsheet" && typeof cheatsheetMod !== "undefined" && cheatsheetMod.isAddingMode) {
+            return 500;
+        }
+        if (activeMode === "transition" || activeMode === "calendar" || activeMode === "powermenu" || activeMode === "battery" || activeMode === "notes" || activeMode === "cheatsheet") {
             return NotchConfig.modeDimensions[activeMode]?.height ?? 220;
         }
         if (activeMode === "notifications") {
@@ -196,31 +207,74 @@ ShellRoot {
     // OSD Engine
     property string osdType: "volume"
     property int osdValue: 50
-    property bool osdReady: false
+    property string previousActiveMode: "idle"
+    readonly property bool isOsdMode: activeMode === "osd" || previousActiveMode === "osd"
 
     function triggerOsd(type, val) {
         root.osdType = type;
         root.osdValue = Math.max(0, Math.min(100, val));
+        if (typeof utilMod !== "undefined" && utilMod !== null) {
+            if (type === "volume") {
+                utilMod.audioVolume = root.osdValue / 100.0;
+                utilMod.audioMuted = (root.osdValue <= 0);
+            } else if (type === "brightness") {
+                utilMod.displayBrightness = Math.max(0.01, root.osdValue / 100.0);
+            }
+        }
         if (root.activeMode !== "osd") {
-            root.osdReady = false;
+            root.previousActiveMode = root.activeMode;
             root.activeMode = "osd";
-            osdSettleTimer.restart();
-        } else {
-            root.osdReady = true;
         }
         osdHideTimer.restart();
     }
 
-    Timer { id: osdSettleTimer; interval: NotchConfig.timerOsdSettle; onTriggered: root.osdReady = true }
-    Timer { id: osdHideTimer; interval: NotchConfig.timerOsdHide; onTriggered: { if (root.activeMode === "osd") { root.collapseToIdle(); root.osdReady = false; } } }
+    Timer {
+        id: osdResetPrevModeTimer
+        interval: 240
+        onTriggered: {
+            if (root.previousActiveMode === "osd" && root.activeMode !== "osd") {
+                root.previousActiveMode = root.activeMode;
+            }
+        }
+    }
+
+    Timer {
+        id: osdHideTimer
+        interval: NotchConfig.timerOsdHide
+        onTriggered: {
+            if (root.activeMode === "osd") {
+                root.previousActiveMode = "osd";
+                root.collapseToIdle();
+                osdResetPrevModeTimer.restart();
+            }
+        }
+    }
     
     Process {
-        id: osdFileReader
-        running: false
-        command: ["sh", "-c", "cat /tmp/notch_osd 2>/dev/null && : > /tmp/notch_osd"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                var content = this.text.trim();
+        id: osdListener
+        running: true
+        command: ["python3", "-u", "-c", `
+import os
+p = '/tmp/notch_osd'
+try:
+    if os.path.exists(p) and not os.path.islink(p):
+        os.remove(p)
+    os.mkfifo(p)
+except Exception:
+    pass
+while True:
+    try:
+        with open(p, 'r') as f:
+            for line in f:
+                l = line.strip()
+                if l: print(l, flush=True)
+    except Exception:
+        pass
+`]
+        stdout: SplitParser {
+            splitMarker: "\n"
+            onRead: (data) => {
+                var content = data.trim();
                 if (content !== "") {
                     var parts = content.split(" ");
                     if (parts.length >= 2) {
@@ -232,26 +286,23 @@ ShellRoot {
         }
     }
 
-    Timer { interval: NotchConfig.timerPollOsd; running: true; repeat: true; onTriggered: if (!osdFileReader.running) osdFileReader.running = true }
-
     Timer {
         id: workspaceSwitchSettleTimer
-        interval: NotchConfig.timerWorkspacePeek; repeat: false
+        interval: NotchConfig.timerWorkspacePeek
+        repeat: false
         onTriggered: {
-            if (root.isWorkspacePeeking) {
-                root.isWorkspacePeeking = false;
-                if (root.activeMode === "hover" && !notchHoverHandler.hovered) root.collapseToIdle();
-            }
+            root.isWorkspacePeeking = false;
         }
     }
 
     Connections {
         target: typeof Hyprland !== "undefined" ? Hyprland : null
-        function onRawEvent(name, data) {
-            if (name === "workspace" || name === "focusedmon") {
+        function onRawEvent(event) {
+            var evName = (typeof event === "object" && event !== null) ? event.name : event;
+            if (evName === "workspace" || evName === "focusedmon" || evName === "workspacev2") {
+                if (typeof dashMod !== "undefined") dashMod.refreshWorkspaceIds();
                 if (root.activeMode === "idle") {
                     root.isWorkspacePeeking = true;
-                    root.activeMode = "hover";
                     workspaceSwitchSettleTimer.restart();
                 } else if (root.isWorkspacePeeking) {
                     workspaceSwitchSettleTimer.restart();
@@ -266,13 +317,29 @@ ShellRoot {
     GlobalShortcut { name: "toggleWallpaperNotch"; onPressed: root.switchMode("wallpaper", true) }
     GlobalShortcut { name: "toggleTransitionNotch"; onPressed: root.switchMode("transition", true) }
     GlobalShortcut { name: "resetNotchToIdle"; onPressed: root.collapseToIdle() }
+    GlobalShortcut { name: "toggleBatteryNotch"; onPressed: root.switchMode("battery", true) }
     GlobalShortcut { name: "toggleRecorderNotch"; onPressed: root.switchMode("recorder", true) }
     GlobalShortcut { name: "togglePowerMenuNotch"; onPressed: root.switchMode("powermenu", true) }
     GlobalShortcut { name: "toggleCalendarNotch"; onPressed: root.switchMode("calendar", true) }
     GlobalShortcut { name: "toggleClipboardNotch"; onPressed: root.switchMode("clipboard", true) }
     GlobalShortcut { name: "toggleShelfNotch"; onPressed: root.switchMode("shelf", true) }
     GlobalShortcut { name: "toggleNotificationsNotch"; onPressed: root.switchMode("notifications", true) }
-	GlobalShortcut { name: "toggleMusicInfoNotch"; onPressed: if (typeof dashMod !== "undefined") dashMod.showMusicInfo = !dashMod.showMusicInfo }
+    GlobalShortcut { name: "toggleDndNotch"; onPressed: root.dndEnabled = !root.dndEnabled }
+    GlobalShortcut { name: "toggleUtilityNotch"; onPressed: root.switchMode("utility", true) }
+    GlobalShortcut { name: "toggleMusicInfoNotch"; onPressed: root.switchMode("music", true) }
+    GlobalShortcut { name: "toggleNotesNotch"; onPressed: root.switchMode("notes", true) }
+    GlobalShortcut { name: "toggleCheatsheetNotch"; onPressed: root.switchMode("cheatsheet", true) }
+    GlobalShortcut { name: "toggleWifiNotch"; onPressed: root.switchMode("wifi", true) }
+    GlobalShortcut { name: "toggleBluetoothNotch"; onPressed: root.switchMode("bluetooth", true) }
+    GlobalShortcut { 
+        name: "triggerScreenOcr"
+        onPressed: {
+            if (root.activeMode !== "idle" && root.activeMode !== "hover") {
+                root.collapseToIdle();
+            }
+            if (typeof dashMod !== "undefined") dashMod.startOcr();
+        }
+    }
 	GlobalShortcut { 
         name: "cycleWindowNext"
         onPressed: {
@@ -303,22 +370,34 @@ ShellRoot {
         }
     }
 
+    // Native Hyprland focus grabber: captures outside clicks and closes the expanded notch
+    HyprlandFocusGrab {
+        id: focusGrab
+        active: !root.isDashMode && root.activeMode !== "osd" && (!shelfMod || !shelfMod.isDragging)
+        windows: [panel]
+        onCleared: {
+            if (typeof shelfMod !== "undefined" && shelfMod.isDragging) return;
+            root.collapseToIdle();
+        }
+    }
+
     // Main Notch Panel
     PanelWindow {
         id: panel
         anchors.top: true
-        implicitWidth: 860
-        implicitHeight: 520
+        implicitWidth: 880
+        implicitHeight: 560
         exclusiveZone: NotchConfig.baseExclusiveZone
         color: "transparent"
         WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.namespace: "quickshell"
 
         mask: Region {
             item: notchContainer
         }
 
         WlrLayershell.keyboardFocus: (root.activeMode !== "idle" && root.activeMode !== "hover" && root.activeMode !== "osd") 
-            ? WlrKeyboardFocus.Exclusive 
+            ? WlrKeyboardFocus.OnDemand 
             : WlrKeyboardFocus.None
 
         Item {
@@ -344,6 +423,7 @@ ShellRoot {
                 keys: ["text/uri-list"]
 
                 onEntered: (drag) => {
+                    if (typeof shelfMod !== "undefined" && shelfMod.isDragging) return;
                     if (drag.hasUrls) {
                         if (root.activeMode !== "shelf") {
                             root.switchMode("shelf", false);
@@ -353,6 +433,7 @@ ShellRoot {
                 }
 
                 onDropped: (drop) => {
+                    if (typeof shelfMod !== "undefined" && shelfMod.isDragging) return;
                     if (drop.hasUrls && typeof shelfMod !== "undefined") {
                         shelfMod.addDroppedFiles(drop.urls);
                         drop.acceptProposedAction();
@@ -408,14 +489,7 @@ ShellRoot {
                 anchors.margins: -20
                 hoverEnabled: true
                 acceptedButtons: Qt.NoButton
-                enabled: root.activeMode === "wifi" || root.activeMode === "bluetooth" || root.activeMode === "battery" || root.activeMode === "shelf" || root.activeMode === "notifications"
-                onContainsMouseChanged: {
-                    if (containsMouse) {
-                        autoCollapseTimer.stop();
-                    } else if (!notchHoverHandler.hovered && !root.openedViaShortcut) {
-                        autoCollapseTimer.restart();
-                    }
-                }
+                enabled: false
             }
 
             // Notch Surface
@@ -431,8 +505,8 @@ ShellRoot {
                 radius: 0
                 bottomLeftRadius: root.targetRadius
                 bottomRightRadius: root.targetRadius
-                Behavior on width  { NumberAnimation { duration: NotchConfig.animNotchResize; easing.type: Easing.OutExpo } }
-                Behavior on height { NumberAnimation { duration: NotchConfig.animNotchResize; easing.type: Easing.OutExpo } }
+                Behavior on width  { NumberAnimation { duration: root.isOsdMode ? 220 : NotchConfig.animNotchResize; easing.type: Easing.OutCubic } }
+                Behavior on height { NumberAnimation { duration: root.isOsdMode ? 220 : NotchConfig.animNotchResize; easing.type: Easing.OutCubic } }
 
                 // 1. Persistent Dash Layer
                 Item {
@@ -443,10 +517,10 @@ ShellRoot {
                     height: root.targetHeight
                     z: 5
 
-                    opacity: root.isDashMode ? 1.0 : 0.0
+                    opacity: (root.isDashMode && root.activeMode !== "osd") ? 1.0 : 0.0
                     visible: opacity > 0.01
-                    Behavior on height { NumberAnimation { duration: NotchConfig.animNotchResize; easing.type: Easing.OutExpo } }
-                    Behavior on opacity { NumberAnimation { duration: NotchConfig.animDashFade; easing.type: Easing.OutQuad } }
+                    Behavior on height { NumberAnimation { duration: root.isOsdMode ? 220 : NotchConfig.animNotchResize; easing.type: Easing.OutExpo } }
+                    Behavior on opacity { NumberAnimation { duration: root.isOsdMode ? 140 : NotchConfig.animDashFade; easing.type: Easing.OutQuad } }
 
                     MainDash { 
                         id: dashMod 
@@ -460,13 +534,13 @@ ShellRoot {
                     anchors.fill: parent
                     anchors.leftMargin: 12
                     anchors.rightMargin: 12
-                    anchors.topMargin: root.activeMode === "osd" ? 6 : 12
-                    anchors.bottomMargin: root.activeMode === "osd" ? 6 : 12
+                    anchors.topMargin: 12
+                    anchors.bottomMargin: 12
                     z: 2
 
-                    opacity: (!root.isDashMode && (notch.height > 35 || root.activeMode === "osd")) ? 1.0 : 0.0
+                    opacity: (!root.isDashMode && root.activeMode !== "osd" && notch.height > 35) ? 1.0 : 0.0
                     visible: opacity > 0.001
-                    enabled: !root.isDashMode
+                    enabled: !root.isDashMode && root.activeMode !== "osd"
                     Behavior on opacity { NumberAnimation { duration: NotchConfig.animModulesFade; easing.type: Easing.OutQuad } }
 
                     StackLayout {
@@ -480,17 +554,20 @@ ShellRoot {
                                 case "theme":         return 1;
                                 case "wallpaper":     return 2;
                                 case "transition":    return 3;
-                                case "osd":           return 4;
-                                case "bluetooth":     return 5;
-                                case "wifi":          return 6;
-                                case "recorder":      return 7;
-                                case "battery":       return 8;
-                                case "powermenu":     return 9;
-                                case "calendar":      return 10;
-                                case "clipboard":     return 11;
-                                case "shelf":         return 12;
-								case "notifications": return 13;
-								case "switcher":      return 14;
+                                case "bluetooth":     return 4;
+                                case "wifi":          return 5;
+                                case "recorder":      return 6;
+                                case "battery":       return 7;
+                                case "powermenu":     return 8;
+                                case "calendar":      return 9;
+                                case "clipboard":     return 10;
+                                case "shelf":         return 11;
+								case "notifications": return 12;
+								case "switcher":      return 13;
+                                case "utility":       return 14;
+                                case "music":         return 15;
+                                case "notes":         return 16;
+                                case "cheatsheet":    return 17;
                                 default:              return 0;
                             }
                         }
@@ -499,7 +576,6 @@ ShellRoot {
                         ThemeSelector      { id: themeMod }
                         WallpaperSelector  { id: wallMod }
                         TransitionSelector { id: transMod }
-                        Osd                { id: osdMod }
                         BluetoothModule    { id: btMod }
                         WifiModule         { id: wifiMod }
                         RecorderModule     { id: recMod }
@@ -510,6 +586,30 @@ ShellRoot {
                         ShelfModule        { id: shelfMod }
 						NotificationModule { id: notifMod }
 						WindowSwitcher     { id: switcherMod }
+                        UtilityModule      { id: utilMod }
+                        MusicModule        { id: musicMod }
+                        NotesModule        { id: notesMod }
+                        KeybindsModule     { id: cheatsheetMod }
+                    }
+                }
+
+                // 3. Dedicated OSD HUD Layer
+                Item {
+                    id: osdContainer
+                    anchors.fill: parent
+                    anchors.leftMargin: 14
+                    anchors.rightMargin: 14
+                    anchors.topMargin: 4
+                    anchors.bottomMargin: 4
+                    z: 10
+
+                    opacity: root.activeMode === "osd" ? 1.0 : 0.0
+                    visible: opacity > 0.001
+                    Behavior on opacity { NumberAnimation { duration: 140; easing.type: Easing.OutQuad } }
+
+                    Osd {
+                        id: osdMod
+                        anchors.fill: parent
                     }
                 }
 
@@ -518,8 +618,7 @@ ShellRoot {
                     interval: NotchConfig.timerAutoCollapse
                     repeat: false
                     onTriggered: {
-                        if (root.openedViaShortcut) return;
-                        if (!notchHoverHandler.hovered && (!extendedHoverArea.enabled || !extendedHoverArea.containsMouse) && root.activeMode !== "idle" && root.activeMode !== "osd" && !root.isWorkspacePeeking) {
+                        if (root.activeMode === "hover" && !notchHoverHandler.hovered) {
                             root.collapseToIdle();
                         }
                     }
@@ -529,12 +628,13 @@ ShellRoot {
                     id: notchHoverHandler
                     enabled: root.activeMode !== "osd"
                     onHoveredChanged: {
+                        if (typeof shelfMod !== "undefined" && shelfMod.isDragging) return;
                         if (hovered) {
                             autoCollapseTimer.stop();
                             root.isWorkspacePeeking = false;
                             if (root.activeMode === "idle") root.activeMode = "hover";
                         } else {
-                            if (!root.openedViaShortcut && (!extendedHoverArea.enabled || !extendedHoverArea.containsMouse)) {
+                            if (root.activeMode === "hover") {
                                 autoCollapseTimer.restart();
                             }
                         }

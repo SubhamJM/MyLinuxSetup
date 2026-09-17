@@ -13,7 +13,7 @@ QtObject {
     // ==========================================
     // 2. GLOBAL ANIMATION DURATIONS (ms)
     // ==========================================
-    readonly property int animNotchResize: 400      // Width / height transition of the notch surface
+    readonly property int animNotchResize: 420      // Width / height transition of the notch surface
     readonly property int animDashFade: 90          // Quick cross-fade for the persistent dash bar
     readonly property int animModulesFade: 100      // Cross-fade for the expanded module body
     readonly property int animColor: 150            // Standard button & hover color transitions
@@ -24,11 +24,10 @@ QtObject {
     // ==========================================
     readonly property int timerAutoCollapse: 60     // Delay before collapsing after mouse leave
     readonly property int timerNotifPopup: 1600     // How long the notification popup island remains visible
-    readonly property int timerStartupGrace: 800    // Grace window on startup to suppress notification replays
+    readonly property int timerStartupGrace: 600    // Grace window on startup to suppress notification replays
     readonly property int timerOsdSettle: 150       // OSD transition settle debounce
     readonly property int timerOsdHide: 1200        // Inactivity timeout to auto-hide OSD bar
-    readonly property int timerWorkspacePeek: 1500  // Duration to show workspaces on workspace switch
-    readonly property int timerPollOsd: 50          // Frequency to check /tmp/notch_osd
+    readonly property int timerWorkspacePeek: 800  // Duration to show workspaces on workspace switch
     readonly property int timerBtPopup: 1500        // Duration for Bluetooth connect island popup
     readonly property int timerPowerPopup: 1500     // Duration for Power/Charging connected island popup
     readonly property int timerNetPopup: 1500       // Duration for Network handoff island popup
@@ -42,22 +41,25 @@ QtObject {
 
     readonly property var modeDimensions: ({
         "idle":          { width: 120, height: 32,  radius: 12 },
-		"hover":         { width: 460, height: 46,  radius: 12 },
+		"hover":         { width: 340, height: 46,  radius: 12 },
 		"switcher":      { width: 800, height: 420, radius: 14 },
         "launcher":      { width: 460, height: 360, radius: 12 },
-        "theme":         { width: 440, height: 280, radius: 12 },
+        "theme":         { width: 660, height: 200, radius: 14 },
         "wallpaper":     { width: 760, height: 320, radius: 12 },
         "transition":    { width: 440, height: 320, radius: 12 },
         "osd":           { width: 280, height: 40,  radius: 16 },
         "wifi":          { width: 420, height: 380, radius: 12 }, 
         "bluetooth":     { width: 400, height: 360, radius: 12 },
         "recorder":      { width: 380, height: 225, radius: 12 },
-        "battery":       { width: 440, height: 220, radius: 12 },
+        "battery":       { width: 540, height: 435, radius: 18 },
         "powermenu":     { width: 440, height: 100, radius: 14 },
         "calendar":      { width: 320, height: 280, radius: 12 },
         "clipboard":     { width: 460, height: 380, radius: 12 },
         "shelf":         { width: 460, height: 380, radius: 12 },
-        "notifications": { width: 440, height: 380, radius: 12 }
+        "utility":       { width: 440, height: 350, radius: 14 },
+        "music":         { width: 440, height: 210, radius: 14 },
+        "notes":         { width: 680, height: 480, radius: 14 },
+        "cheatsheet":    { width: 800, height: 440, radius: 14 }
     })
 
     // ==========================================
@@ -94,22 +96,27 @@ QtObject {
     }
 
     function calculateBluetoothHeight(devices, stateMap) {
-        var btCount = devices.length;
+        var btCount = devices ? devices.length : 0;
         if (btCount === 0) return 266;
 
         var listItemsHeight = 0;
         for (var i = 0; i < btCount; i++) {
             var dev = devices[i];
-            var expanded = stateMap[dev.mac] && stateMap[dev.mac].isExpanded;
-            listItemsHeight += (expanded ? 84 : 48) + 6;
+            var expanded = stateMap && stateMap[dev.mac] && stateMap[dev.mac].isExpanded;
+            listItemsHeight += (expanded ? 88 : 48) + 6;
         }
-        return Math.min(486, Math.max(246, 112 + listItemsHeight));
+        // Fixed overhead: shell margins (24) + header (44) + spacing (10) + title row (28) + spacing (10) + list padding (12) = 128px
+        return Math.min(486, Math.max(246, 128 + listItemsHeight));
     }
 
     function calculateWifiHeight(activeTab, wifiEnabled, modelCount, listContentHeight) {
         if (activeTab === "hotspot") return 400;
         if (!wifiEnabled) return 226;
         if (modelCount === 0) return 286;
-        return Math.min(380, Math.max(240, 120 + listContentHeight));
+
+        // Fixed overhead: shell margins (24) + header (44) + spacing (10) + tab bar (40) + spacing (10) + toggle row (40) + spacing (8) + list padding (10) = 186px
+        var overhead = 186;
+        var contentH = Math.max(listContentHeight, modelCount * 58);
+        return Math.min(380, Math.max(260, overhead + contentH));
     }
 }

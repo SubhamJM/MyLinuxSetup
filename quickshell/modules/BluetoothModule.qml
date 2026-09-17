@@ -115,6 +115,24 @@ ColumnLayout {
             anchors.fill: parent; anchors.margins: 10; spacing: 10
 
             Rectangle {
+                width: 26; height: 26; radius: 8
+                color: btBackMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
+                border.width: 1
+                border.color: Theme.colors.border ?? "#16161e"
+                Text {
+                    anchors.centerIn: parent
+                    text: "󰁍"
+                    font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14
+                    color: Theme.colors.text_primary ?? "white"
+                }
+                MouseArea {
+                    id: btBackMouse
+                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                    onClicked: root.switchMode("utility", true)
+                }
+            }
+
+            Rectangle {
                 width: 28; height: 28; radius: 14
                 color: btModule.isEnabled ? Qt.rgba(1,1,1,0.08) : "transparent"
                 Text {

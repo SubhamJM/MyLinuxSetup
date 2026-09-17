@@ -3,6 +3,8 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Services.Mpris
+import Quickshell.Bluetooth
 import "../"
 
 Item {
@@ -12,16 +14,36 @@ Item {
 
     property bool netIslandExpanded: false
     property bool powerIslandExpanded: false
-    property bool isIslandActive: btIslandExpanded || powerIslandExpanded || netIslandExpanded || root.isNotifPopupActive
+    property bool isIslandActive: btIslandExpanded || powerIslandExpanded || netIslandExpanded || root.isNotifPopupActive || root.isWorkspacePeeking
+
+    readonly property string currentIslandType: {
+        if (root.isNotifPopupActive) return "notif";
+        if (btIslandExpanded) return "bluetooth";
+        if (powerIslandExpanded) return "power";
+        if (netIslandExpanded) return "net";
+        if (root.isWorkspacePeeking) return "workspace";
+        return "";
+    }
+
+    property string displayedIslandType: ""
+
+    onCurrentIslandTypeChanged: {
+        if (currentIslandType !== "") {
+            displayedIslandType = currentIslandType;
+        }
+    }
 
     property int activeIslandWidth: {
-        if (root.isNotifPopupActive) {
+        if (displayedIslandType === "notif" || root.isNotifPopupActive) {
             var textW = Math.max(notifSummaryText.implicitWidth, notifBodyText.implicitWidth);
             return Math.min(520, Math.max(260, textW + 80));
         }
-        if (btIslandExpanded) return btPopupRow.implicitWidth + 36;
-        if (powerIslandExpanded) return powerPopupRow.implicitWidth + 36;
-        if (netIslandExpanded) return netPopupRow.implicitWidth + 36;
+        if (displayedIslandType === "workspace" || root.isWorkspacePeeking) {
+            return Math.max(136, wsIslandRow.implicitWidth + 36);
+        }
+        if (displayedIslandType === "bluetooth" || btIslandExpanded) return btPopupRow.implicitWidth + 36;
+        if (displayedIslandType === "power" || powerIslandExpanded) return powerPopupRow.implicitWidth + 36;
+        if (displayedIslandType === "net" || netIslandExpanded) return netPopupRow.implicitWidth + 36;
         return 120;
     }
 
@@ -34,14 +56,39 @@ Item {
         return 120;
     }
 
-    property string playbackStatus: ""
-    property bool isMediaPlaying: false
-    property bool showMusicInfo: false
-    property string currentSongTitle: ""
-    property string currentSongArtist: ""
+    readonly property var activePlayer: {
+        if (typeof Mpris === "undefined" || !Mpris.players) return null;
+        var list = Mpris.players.values;
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].playbackState === MprisPlaybackState.Playing) return list[i];
+        }
+        return list.length > 0 ? list[0] : null;
+    }
 
-    property string currentAlbumArt: ""
-    property bool isMusicDisplayed: showMusicInfo && isMediaPlaying && root.activeMode === "idle"
+    property string rawPlaybackStatus: ""
+    property bool rawIsMediaPlaying: false
+    property string rawSongTitle: ""
+    property string rawSongArtist: ""
+    property string rawAlbumArt: ""
+
+    property bool isMediaPlaying: activePlayer ? (activePlayer.playbackState === MprisPlaybackState.Playing) : rawIsMediaPlaying
+    property string playbackStatus: activePlayer ? (isMediaPlaying ? "Playing" : "Paused") : rawPlaybackStatus
+    property bool showMusicInfo: false
+    property string currentSongArtist: {
+        if (activePlayer) {
+            if (Array.isArray(activePlayer.trackArtists)) return activePlayer.trackArtists.join(", ");
+            if (typeof activePlayer.trackArtists === "string") return activePlayer.trackArtists;
+            if (typeof activePlayer.trackArtist === "string") return activePlayer.trackArtist;
+        }
+        return rawSongArtist;
+    }
+    property string currentAlbumArt: activePlayer ? (activePlayer.artUrl || "") : rawAlbumArt
+
+    property bool isMusicDisplayed: (showMusicInfo || isMediaPlaying) && (activePlayer || rawSongTitle !== "") && root.activeMode === "idle"
+
+    onIsMediaPlayingChanged: {
+        if (!isMediaPlaying) showMusicInfo = false;
+    }
 
     readonly property var motionCurve: [0.05, 0.7, 0.1, 1, 1, 1]
 
@@ -50,27 +97,26 @@ Item {
         command: ["sh", "-c", "timeout 1.8 playerctl metadata --format '{{status}}\n{{title}}\n{{artist}}\n{{mpris:artUrl}}' 2>/dev/null || echo -e '\n\n\n'"]
         stdout: StdioCollector {
             onStreamFinished: {
+                if (dash.activePlayer) return;
                 var lines = this.text.split("\n");
                 var status = lines[0] ? lines[0].trim() : "";
-                dash.playbackStatus = status;
-                dash.isMediaPlaying = (status === "Playing");
-                dash.currentSongTitle = lines[1] ? lines[1].trim() : "";
-                dash.currentSongArtist = lines[2] ? lines[2].trim() : "";
+                dash.rawPlaybackStatus = status;
+                dash.rawIsMediaPlaying = (status === "Playing");
+                dash.rawSongTitle = lines[1] ? lines[1].trim() : "";
+                dash.rawSongArtist = lines[2] ? lines[2].trim() : "";
                 
                 var art = lines[3] ? lines[3].trim() : "";
                 if (art.startsWith("file://") || art.length > 0) {
-                    dash.currentAlbumArt = art;
+                    dash.rawAlbumArt = art;
                 } else {
-                    dash.currentAlbumArt = "";
+                    dash.rawAlbumArt = "";
                 }
-                
-                if (!dash.isMediaPlaying) dash.showMusicInfo = false;
             }
         }
     }
     Timer {
-        interval: 1000
-        running: true
+        interval: 3000
+        running: !dash.activePlayer
         repeat: true
         onTriggered: {
             if (!mprisPoller.running) {
@@ -82,8 +128,20 @@ Item {
     property string activeNetType: "wifi"
     property string activeNetName: ""
     property int activeNetSignal: 0
-    property bool btConnected: false
-    property string btDeviceName: ""
+
+    readonly property var activeBtDevice: {
+        if (typeof Bluetooth === "undefined" || !Bluetooth.devices) return null;
+        var devs = Bluetooth.devices.values;
+        for (var i = 0; i < devs.length; i++) {
+            if (devs[i].connected) return devs[i];
+        }
+        return null;
+    }
+
+    property bool rawBtConnected: false
+    property string rawBtDeviceName: ""
+    property bool btConnected: activeBtDevice ? true : rawBtConnected
+    property string btDeviceName: activeBtDevice ? (activeBtDevice.name || "") : rawBtDeviceName
 
     property bool triggerNetText: false
     property bool triggerBtText: false
@@ -141,13 +199,13 @@ Item {
     }
 
     Timer {
-        interval: 3000
+        interval: 5000
         running: true
         repeat: true
         triggeredOnStart: true
         onTriggered: {
-            netPoller.running = true;
-            btPoller.running = true;
+            if (!netPoller.running) netPoller.running = true;
+            if (!dash.activeBtDevice && !btPoller.running) btPoller.running = true;
         }
     }
 
@@ -183,17 +241,72 @@ Item {
         command: ["sh", "-c", "bluetoothctl devices Connected | head -n 1"]
         stdout: StdioCollector {
             onStreamFinished: {
+                if (dash.activeBtDevice) return;
                 var line = this.text.trim();
                 if (line.indexOf("Device") !== -1) {
-                    dash.btConnected = true;
+                    dash.rawBtConnected = true;
                     var parts = line.split(" ");
                     if (parts.length >= 3) {
-                        dash.btDeviceName = parts.slice(2).join(" ");
+                        dash.rawBtDeviceName = parts.slice(2).join(" ");
                     }
                 } else {
-                    dash.btConnected = false;
-                    dash.btDeviceName = "";
+                    dash.rawBtConnected = false;
+                    dash.rawBtDeviceName = "";
                 }
+            }
+        }
+    }
+
+    function startOcr() {
+        if (!ocrRunner.running) {
+            ocrRunner.running = true;
+        }
+    }
+
+    Process {
+        id: ocrRunner
+        running: false
+        command: ["/home/ricing/.config/quickshell/scripts/snip_ocr.sh"]
+    }
+
+    // Stable workspace model tracking to prevent delegate teardown during animations
+    property var workspaceIds: [1]
+
+    function refreshWorkspaceIds() {
+        if (typeof Hyprland === "undefined" || !Hyprland.workspaces) return;
+        var raw = Hyprland.workspaces.values.filter(function(w) { return w.id > 0; });
+        var focusedId = (Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id > 0)
+            ? Hyprland.focusedWorkspace.id
+            : 1;
+        var ids = [];
+        var found = false;
+        for (var i = 0; i < raw.length; i++) {
+            ids.push(raw[i].id);
+            if (raw[i].id === focusedId) found = true;
+        }
+        if (!found) ids.push(focusedId);
+        ids.sort(function(a, b) { return a - b; });
+
+        if (ids.length !== dash.workspaceIds.length) {
+            dash.workspaceIds = ids;
+            return;
+        }
+        for (var j = 0; j < ids.length; j++) {
+            if (ids[j] !== dash.workspaceIds[j]) {
+                dash.workspaceIds = ids;
+                return;
+            }
+        }
+    }
+
+    Component.onCompleted: refreshWorkspaceIds()
+
+    Connections {
+        target: typeof Hyprland !== "undefined" ? Hyprland : null
+        function onRawEvent(event) {
+            var evName = (typeof event === "object" && event !== null) ? event.name : event;
+            if (evName === "workspace" || evName === "focusedmon" || evName === "workspacev2" || evName === "createworkspace" || evName === "destroyworkspace") {
+                dash.refreshWorkspaceIds();
             }
         }
     }
@@ -203,17 +316,23 @@ Item {
         id: islandContainer
         anchors.fill: parent
         opacity: dash.isIslandActive ? 1.0 : 0.0
-        scale: dash.isIslandActive ? 1.0 : 0.9
-        visible: opacity > 0.01
-        Behavior on opacity { NumberAnimation { duration: 260; easing.type: Easing.BezierCurve; easing.bezierCurve: dash.motionCurve } }
-        Behavior on scale { NumberAnimation { duration: 340; easing.type: Easing.BezierCurve; easing.bezierCurve: dash.motionCurve } }
+        scale: dash.isIslandActive ? 1.0 : 0.92
+        visible: opacity > 0.001
+        Behavior on opacity { NumberAnimation { duration: 420; easing.type: Easing.InOutCubic } }
+        Behavior on scale { NumberAnimation { duration: 460; easing.type: Easing.OutCubic } }
+
+        onOpacityChanged: {
+            if (opacity <= 0.01 && !dash.isIslandActive) {
+                dash.displayedIslandType = "";
+            }
+        }
 
         // Pop-up Notification Row (fixed layout with explicit positioning)
         RowLayout {
             id: notifPopupRow
             anchors.centerIn: parent
             spacing: 8
-            visible: root.isNotifPopupActive
+            visible: dash.displayedIslandType === "notif"
 
             Rectangle {
                 Layout.preferredWidth: 22
@@ -257,16 +376,17 @@ Item {
                     visible: text !== ""
                 }
             }
+        }
 
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    notifPopupTimer.stop();
-                    root.notifPopupSummary = "";
-                    root.notifPopupBody = "";
-                    root.switchMode("notifications", true);
-                }
+        MouseArea {
+            anchors.fill: notifPopupRow
+            enabled: dash.displayedIslandType === "notif"
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+                notifPopupTimer.stop();
+                root.notifPopupSummary = "";
+                root.notifPopupBody = "";
+                root.switchMode("notifications", true);
             }
         }
 
@@ -275,7 +395,7 @@ Item {
             id: btPopupRow
             anchors.centerIn: parent
             spacing: 8
-            visible: dash.btIslandExpanded && !root.isNotifPopupActive
+            visible: dash.displayedIslandType === "bluetooth"
 
             Text { 
                 text: "󰂱"
@@ -306,7 +426,7 @@ Item {
             id: powerPopupRow
             anchors.centerIn: parent
             spacing: 12
-            visible: dash.powerIslandExpanded && !dash.btIslandExpanded && !root.isNotifPopupActive
+            visible: dash.displayedIslandType === "power"
             
             Item {
                 width: 20
@@ -323,8 +443,8 @@ Item {
                     opacity: dash.powerIslandExpanded ? 1.0 : 0.0
                     scale: dash.powerIslandExpanded ? 1.0 : 0.5
                     
-                    Behavior on scale { NumberAnimation { duration: 420; easing.type: Easing.BezierCurve; easing.bezierCurve: dash.motionCurve } }
-                    Behavior on opacity { NumberAnimation { duration: 320; easing.type: Easing.BezierCurve; easing.bezierCurve: dash.motionCurve } }
+                    Behavior on scale { NumberAnimation { duration: 420; easing.type: Easing.BezierSpline; easing.bezierCurve: dash.motionCurve } }
+                    Behavior on opacity { NumberAnimation { duration: 320; easing.type: Easing.BezierSpline; easing.bezierCurve: dash.motionCurve } }
                 }
                 
                 Text {
@@ -348,7 +468,7 @@ Item {
             id: netPopupRow
             anchors.centerIn: parent
             spacing: 8
-            visible: dash.netIslandExpanded && !dash.powerIslandExpanded && !dash.btIslandExpanded && !root.isNotifPopupActive
+            visible: dash.displayedIslandType === "net"
             
             Text {
                 text: dash.activeNetType === "eth" ? "󰈀" : "󰤨"
@@ -363,6 +483,77 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
+
+
+        // Workspace Switch Island Row (minimalist dot-to-pill indicator)
+        Row {
+            id: wsIslandRow
+            anchors.centerIn: parent
+            spacing: 8
+            visible: dash.displayedIslandType === "workspace"
+
+            Repeater {
+                model: dash.workspaceIds
+
+                delegate: Item {
+                    id: indicatorItem
+                    property int wsId: modelData
+                    property bool isFocused: typeof Hyprland !== "undefined" && Hyprland.focusedWorkspace && (wsId === Hyprland.focusedWorkspace.id)
+
+                    width: isFocused ? 26 : 8
+                    height: 8
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Behavior on width {
+                        NumberAnimation {
+                            duration: 300
+                            easing.type: Easing.OutCubic
+                        }
+                    }
+
+                    Rectangle {
+                        id: pillShape
+                        anchors.fill: parent
+                        radius: 4
+                        color: indicatorItem.isFocused
+                            ? (Theme.colors.accent ?? "#7aa2f7")
+                            : (dotMouse.containsMouse ? (Theme.colors.text_primary ?? "#c0caf5") : Qt.rgba(1, 1, 1, 0.28))
+
+                        Behavior on color {
+                            ColorAnimation { duration: 240; easing.type: Easing.OutCubic }
+                        }
+
+                        // Soft glow ring for active workspace pill
+                        Rectangle {
+                            anchors.fill: parent
+                            anchors.margins: -2
+                            radius: 5
+                            color: "transparent"
+                            border.width: 1
+                            border.color: Theme.colors.accent ?? "#7aa2f7"
+                            opacity: indicatorItem.isFocused ? 0.35 : 0.0
+                            visible: opacity > 0.001
+                            Behavior on opacity {
+                                NumberAnimation { duration: 240; easing.type: Easing.OutCubic }
+                            }
+                        }
+                    }
+
+                    MouseArea {
+                        id: dotMouse
+                        anchors.fill: parent
+                        anchors.margins: -6
+                        cursorShape: Qt.PointingHandCursor
+                        hoverEnabled: true
+                        onClicked: {
+                            if (typeof Hyprland !== "undefined") {
+                                Hyprland.dispatch("hl.dsp.focus({ workspace = " + indicatorItem.wsId + " })");
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Default Persistent Bar Row
@@ -372,10 +563,10 @@ Item {
         spacing: 16
         opacity: dash.isIslandActive ? 0.0 : 1.0
         scale: dash.isIslandActive ? 0.92 : 1.0
-        visible: opacity > 0.01
+        visible: opacity > 0.001
         layer.enabled: true
-        Behavior on opacity { NumberAnimation { duration: 260; easing.type: Easing.BezierCurve; easing.bezierCurve: dash.motionCurve } }
-        Behavior on scale { NumberAnimation { duration: 320; easing.type: Easing.BezierCurve; easing.bezierCurve: dash.motionCurve } }
+        Behavior on opacity { NumberAnimation { duration: 420; easing.type: Easing.InOutCubic } }
+        Behavior on scale { NumberAnimation { duration: 460; easing.type: Easing.OutCubic } }
 
         // Workspaces (left of clock)
         Row {
@@ -398,7 +589,7 @@ Item {
                     border.color: Theme.colors.border_hover ?? "#7aa2f7"
                     scale: isFocused ? 1.06 : 1.0
                     Behavior on color { ColorAnimation { duration: 180; easing.type: Easing.OutCubic } }
-                    Behavior on scale { NumberAnimation { duration: 260; easing.type: Easing.BezierCurve; easing.bezierCurve: dash.motionCurve } }
+                    Behavior on scale { NumberAnimation { duration: 260; easing.type: Easing.BezierSpline; easing.bezierCurve: dash.motionCurve } }
 
                     Text {
                         anchors.centerIn: parent
@@ -519,6 +710,15 @@ Item {
                         border.color: Theme.colors.accent ?? "#7aa2f7"
                         opacity: 0.35
                     }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (dash.activePlayer) dash.activePlayer.playPause();
+                            else Quickshell.execDetached(["playerctl", "play-pause"]);
+                        }
+                    }
                 }
 
                 // Music Icon
@@ -536,6 +736,15 @@ Item {
                         loops: Animation.Infinite
                         NumberAnimation { from: 1.0; to: 0.5; duration: 900; easing.type: Easing.InOutSine }
                         NumberAnimation { from: 0.5; to: 1.0; duration: 900; easing.type: Easing.InOutSine }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (dash.activePlayer) dash.activePlayer.playPause();
+                            else Quickshell.execDetached(["playerctl", "play-pause"]);
+                        }
                     }
                 }
 
@@ -593,7 +802,7 @@ Item {
                     opacity: dash.isMusicDisplayed ? 1.0 : 0.0
                     visible: width > 0
                     anchors.verticalCenter: parent.verticalCenter
-                    Behavior on opacity { NumberAnimation { duration: 240; easing.type: Easing.BezierCurve; easing.bezierCurve: dash.motionCurve } }
+                    Behavior on opacity { NumberAnimation { duration: 240; easing.type: Easing.BezierSpline; easing.bezierCurve: dash.motionCurve } }
 
                     Row {
                         id: songRow
@@ -601,7 +810,7 @@ Item {
                         spacing: 5
 
                         Text {
-                            text: dash.currentSongTitle
+                            text: dash.currentSongTitle || ""
                             color: Theme.colors.text_primary ?? "white"
                             font.family: "Inter"
                             font.pixelSize: 13
@@ -615,6 +824,24 @@ Item {
                             font.family: "Inter"
                             font.pixelSize: 12
                             font.weight: Font.Medium
+                        }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            root.switchMode("music", true);
+                        }
+                        onWheel: (wheel) => {
+                            wheel.accepted = true;
+                            if (wheel.angleDelta.y < 0) {
+                                if (dash.activePlayer) dash.activePlayer.next();
+                                else Quickshell.execDetached(["playerctl", "next"]);
+                            } else if (wheel.angleDelta.y > 0) {
+                                if (dash.activePlayer) dash.activePlayer.previous();
+                                else Quickshell.execDetached(["playerctl", "previous"]);
+                            }
                         }
                     }
                 }
@@ -672,60 +899,23 @@ Item {
             opacity: visible ? 1.0 : 0.0
             Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
-            Rectangle {
-                width: 26; height: 26; radius: 8
-                color: wifiMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
-                border.width: wifiMouse.containsMouse ? 1 : 0
-                border.color: Theme.colors.border_hover ?? "#7aa2f7"
-                Behavior on color { ColorAnimation { duration: 150; easing.type: Easing.OutCubic } }
-                Text {
-                    anchors.centerIn: parent
-                    text: dash.activeNetType === "eth" ? "󰈀" : (dash.activeNetSignal > 75 ? "󰤨" : (dash.activeNetSignal > 50 ? "󰤥" : (dash.activeNetSignal > 25 ? "󰤢" : "󰤟")))
-                    font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 16
-                    color: Theme.colors.text_primary ?? "#c0caf5"
-                }
-                MouseArea {
-                    id: wifiMouse
-                    anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                    onClicked: root.switchMode("wifi")
-                }
-            }
 
             Rectangle {
                 width: 26; height: 26; radius: 8
-                color: btMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
-                border.width: btMouse.containsMouse ? 1 : 0
+                color: utilMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
+                border.width: utilMouse.containsMouse ? 1 : 0
                 border.color: Theme.colors.border_hover ?? "#7aa2f7"
                 Behavior on color { ColorAnimation { duration: 150; easing.type: Easing.OutCubic } }
                 Text {
                     anchors.centerIn: parent
-                    text: dash.btConnected ? "󰂱" : "󰂯"
-                    font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 16
+                    text: "󱊖"
+                    font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 15
                     color: Theme.colors.text_primary ?? "#c0caf5"
                 }
                 MouseArea {
-                    id: btMouse
+                    id: utilMouse
                     anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                    onClicked: root.switchMode("bluetooth")
-                }
-            }
-
-            Rectangle {
-                width: 26; height: 26; radius: 8
-                color: recMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
-                border.width: recMouse.containsMouse ? 1 : 0
-                border.color: Theme.colors.border_hover ?? "#7aa2f7"
-                Behavior on color { ColorAnimation { duration: 150; easing.type: Easing.OutCubic } }
-                Text {
-                    anchors.centerIn: parent
-                    text: "󰕧"
-                    font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 16
-                    color: Theme.colors.text_primary ?? "#c0caf5"
-                }
-                MouseArea {
-                    id: recMouse
-                    anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                    onClicked: root.switchMode("recorder")
+                    onClicked: root.switchMode("utility", true)
                 }
             }
 

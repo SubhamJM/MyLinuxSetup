@@ -55,6 +55,43 @@ ColumnLayout {
         Item { Layout.fillWidth: true }
 
         Rectangle {
+            Layout.preferredHeight: 24
+            Layout.preferredWidth: dndRow.implicitWidth + 16
+            radius: 6
+            color: root.dndEnabled ? (Theme.colors.accent ?? "#7aa2f7") : (dndMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : (Theme.colors.card_bg ?? "#1f2335"))
+            border.width: 1
+            border.color: root.dndEnabled ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.border ?? "#16161e")
+            Behavior on color { ColorAnimation { duration: 150 } }
+
+            RowLayout {
+                id: dndRow
+                anchors.centerIn: parent
+                spacing: 4
+                Text {
+                    text: root.dndEnabled ? "󰂛" : "󰂚"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 11
+                    color: root.dndEnabled ? (Theme.colors.bg ?? "#16161e") : (Theme.colors.text_secondary ?? "#565f89")
+                }
+                Text {
+                    text: root.dndEnabled ? "DND On" : "DND"
+                    font.family: "Inter"
+                    font.pixelSize: 11
+                    font.bold: true
+                    color: root.dndEnabled ? (Theme.colors.bg ?? "#16161e") : (Theme.colors.text_secondary ?? "#565f89")
+                }
+            }
+
+            MouseArea {
+                id: dndMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.dndEnabled = !root.dndEnabled
+            }
+        }
+
+        Rectangle {
             visible: globalNotifModel.count > 0
             Layout.preferredWidth: 68
             Layout.preferredHeight: 24

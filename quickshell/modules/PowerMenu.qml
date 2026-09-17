@@ -6,7 +6,8 @@ import "../"
 
 RowLayout {
     id: powerMenu
-    anchors.fill: parent
+    Layout.fillWidth: true
+    Layout.fillHeight: true
     spacing: 16
 
     property int currentIndex: 1
@@ -49,9 +50,9 @@ RowLayout {
         opacity: root.activeMode === "powermenu" ? 1.0 : 0.0
         transform: Translate {
             y: root.activeMode === "powermenu" ? 0 : 6
-            Behavior on y { NumberAnimation { duration: 220; easing.type: Easing.BezierCurve; easing.bezierCurve: btnRoot.motionCurve } }
+            Behavior on y { NumberAnimation { duration: 220; easing.type: Easing.BezierSpline; easing.bezierCurve: btnRoot.motionCurve } }
         }
-        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.BezierCurve; easing.bezierCurve: btnRoot.motionCurve } }
+        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.BezierSpline; easing.bezierCurve: btnRoot.motionCurve } }
 
         NumberAnimation on progress {
             id: chargeAnim
@@ -86,7 +87,7 @@ RowLayout {
                 scale: holdMouse.pressed ? 0.92 : (btnRoot.isFocused ? 1.05 : 1.0)
 
                 Behavior on color { ColorAnimation { duration: 180 } }
-                Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.BezierCurve; easing.bezierCurve: btnRoot.motionCurve } }
+                Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.BezierSpline; easing.bezierCurve: btnRoot.motionCurve } }
 
                 // Faint Material-style track ring behind the progress arc
                 Rectangle {

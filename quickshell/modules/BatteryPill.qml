@@ -2,8 +2,6 @@ import QtQuick 6.10
 import QtQuick.Layouts 6.10
 import Quickshell
 import Quickshell.Services.UPower
-import "../../../services" as QsServices
-import "../../../components/effects"
 import "../"
 
 // Android-style animated battery, with a quickshell/caelestia-flavoured expanded charge pill
@@ -14,8 +12,6 @@ Item {
     implicitHeight: 24
 
     readonly property var battery: UPower.displayDevice
-    readonly property var powerProfiles: QsServices.PowerProfiles
-    readonly property var pywal: QsServices.Pywal
     
     // Readiness check to prevent initial zero-state / null-device visual glitches
     readonly property bool isReady: battery != null && (battery.percentage !== undefined && battery.percentage > 0)
@@ -60,8 +56,8 @@ Item {
     // Colors
     readonly property color normalColor: {
         if (!isReady) return Theme.colors.text_primary ?? "#c0caf5"
-        if (isLow) return pywal?.error ?? "#f44336"
-        if (isWarning) return pywal?.warning ?? "#e0af68"
+        if (isLow) return Theme.colors.error ?? "#f44336"
+        if (isWarning) return Theme.colors.warning ?? "#e0af68"
         return Theme.colors.text_primary ?? "#c0caf5"
     }
 
@@ -84,7 +80,7 @@ Item {
         Behavior on width {
             NumberAnimation {
                 duration: 420
-                easing.type: Easing.BezierCurve
+                easing.type: Easing.BezierSpline
                 easing.bezierCurve: root.motionCurve
             }
         }
@@ -100,7 +96,7 @@ Item {
             opacity: (!showExpandedMode && root.isReady) ? 1.0 : 0.0
 
             Behavior on opacity {
-                NumberAnimation { duration: 200; easing.type: Easing.BezierCurve; easing.bezierCurve: root.motionCurve }
+                NumberAnimation { duration: 200; easing.type: Easing.BezierSpline; easing.bezierCurve: root.motionCurve }
             }
 
             // Percentage text
@@ -159,7 +155,7 @@ Item {
                         color: compactBatteryColor
 
                         Behavior on width {
-                            NumberAnimation { duration: 450; easing.type: Easing.BezierCurve; easing.bezierCurve: root.motionCurve }
+                            NumberAnimation { duration: 450; easing.type: Easing.BezierSpline; easing.bezierCurve: root.motionCurve }
                         }
 
                         // Charging shimmer
@@ -236,12 +232,12 @@ Item {
             radius: 11
             visible: showExpandedMode
             opacity: showExpandedMode ? 1 : 0
-            color: Qt.rgba(pywal?.surfaceDim?.r ?? 0.1, pywal?.surfaceDim?.g ?? 0.12, pywal?.surfaceDim?.b ?? 0.18, 0.94)
+            color: Qt.rgba(0.1, 0.12, 0.18, 0.94)
             border.width: 1
             border.color: Qt.rgba(chargingColor.r, chargingColor.g, chargingColor.b, 0.45)
 
             Behavior on opacity {
-                NumberAnimation { duration: 260; easing.type: Easing.BezierCurve; easing.bezierCurve: root.motionCurve }
+                NumberAnimation { duration: 260; easing.type: Easing.BezierSpline; easing.bezierCurve: root.motionCurve }
             }
 
             // Soft breathing glow ring
@@ -322,7 +318,7 @@ Item {
                             from: 0
                             to: underlineTrack.width * (root.isReady ? root.percentage : 0)
                             duration: 900
-                            easing.type: Easing.BezierCurve
+                            easing.type: Easing.BezierSpline
                             easing.bezierCurve: root.motionCurve
                         }
                     }

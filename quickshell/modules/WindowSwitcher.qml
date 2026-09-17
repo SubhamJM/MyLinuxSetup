@@ -90,59 +90,59 @@ ColumnLayout {
     Process {
         id: clientScanner
         running: false
-        command: ["sh", "-c", `
-            python3 -c "
-import subprocess, json
-
-try:
-    raw = subprocess.check_output(['hyprctl', 'clients', '-j'], text=True)
-    clients = json.loads(raw)
-    
-    # Filter valid mapped windows (workspace > 0, non-empty address)
-    valid = [c for c in clients if c.get('workspace', {}).get('id', -1) > 0 and not c.get('hidden', False)]
-    valid = sorted(valid, key=lambda x: x.get('focusHistoryID', 999))
-    
-    for c in valid:
-        addr = c.get('address', '')
-        title = c.get('title', 'Unknown').replace('|||', ' ')
-        c_class = c.get('class', 'application-x-executable').replace('|||', ' ')
-        ws = str(c.get('workspace', {}).get('id', 1))
-        initial = c.get('initialClass', c_class).lower()
-        size = c.get('size', [1920, 1080])
-        
-        print(f'{addr}|||{title}|||{c_class}|||{ws}|||{initial}|||{size[0]}|||{size[1]}')
-except Exception:
-    pass
-"
-        `]
+        command: ["hyprctl", "clients", "-j"]
         stdout: StdioCollector {
             onStreamFinished: {
-                var lines = this.text.trim().split("\n");
-                var newItems = [];
-                
-                for (var i = 0; i < lines.length; i++) {
-                    var parts = lines[i].split("|||");
-                    if (parts.length >= 7) {
-                        newItems.push({
-                            "address": parts[0].trim(),
-                            "title": parts[1].trim(),
-                            "className": parts[2].trim(),
-                            "workspace": parts[3].trim(),
-                            "iconName": parts[4].trim(),
-                            "winWidth": parseInt(parts[5]),
-                            "winHeight": parseInt(parts[6])
-                        });
+                if (!this.text || this.text.trim() === "") return;
+                var rawClients = [];
+                try {
+                    rawClients = JSON.parse(this.text);
+                } catch(e) {
+                    return;
+                }
+
+                var valid = [];
+                for (var k = 0; k < rawClients.length; k++) {
+                    var c = rawClients[k];
+                    var wsId = (c.workspace && typeof c.workspace.id === "number") ? c.workspace.id : -1;
+                    if (wsId > 0 && !c.hidden) {
+                        valid.push(c);
                     }
                 }
-                
+
+                valid.sort((a, b) => {
+                    var idA = typeof a.focusHistoryID === "number" ? a.focusHistoryID : 999;
+                    var idB = typeof b.focusHistoryID === "number" ? b.focusHistoryID : 999;
+                    return idA - idB;
+                });
+
+                var newItems = [];
+                for (var i = 0; i < valid.length; i++) {
+                    var v = valid[i];
+                    var cClass = (v.class || "application-x-executable").trim();
+                    var initClass = (v.initialClass || cClass).toLowerCase().trim();
+                    var winW = (v.size && v.size.length >= 2) ? v.size[0] : 1920;
+                    var winH = (v.size && v.size.length >= 2) ? v.size[1] : 1080;
+
+                    newItems.push({
+                        "address": v.address ? v.address.trim() : "",
+                        "title": v.title ? v.title.trim() : "Unknown",
+                        "className": cClass,
+                        "workspace": String(v.workspace ? v.workspace.id : 1),
+                        "iconName": initClass,
+                        "winWidth": winW,
+                        "winHeight": winH
+                    });
+                }
+
                 // Prevent Carousel snap animations during the population phase
-                windowCarousel.highlightMoveDuration = 0; 
-                
+                windowCarousel.highlightMoveDuration = 0;
+
                 // Batch append to avoid rendering intermediate states
                 for (var j = 0; j < newItems.length; j++) {
                     clientsModel.append(newItems[j]);
                 }
-                
+
                 // Preselect previous window (index 1) immediately
                 if (clientsModel.count > 0) {
                     windowCarousel.currentIndex = clientsModel.count > 1 ? 1 : 0;

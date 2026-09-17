@@ -12,6 +12,7 @@ ColumnLayout {
     Layout.fillHeight: true
 
     property alias searchInput: searchInput
+    property var allClips: []
     ListModel { id: clipModel }
 
     readonly property int calculatedCount: clipModel.count
@@ -19,6 +20,18 @@ ColumnLayout {
     function refresh() {
         if (clipScanner.running) clipScanner.running = false;
         clipScanner.running = true;
+    }
+
+    function applyFilter() {
+        clipModel.clear();
+        var query = searchInput.text.toLowerCase().trim();
+        for (var i = 0; i < allClips.length; i++) {
+            var item = allClips[i];
+            if (query === "" || item.description.toLowerCase().includes(query) || (item.isImage && "image".includes(query))) {
+                clipModel.append(item);
+            }
+        }
+        if (clipModel.count > 0) clipList.currentIndex = 0;
     }
 
     Connections {
@@ -86,31 +99,29 @@ for line in lines:
         `]
         stdout: StdioCollector {
             onStreamFinished: {
-                clipModel.clear();
                 var textRaw = this.text ? this.text.trim() : "";
-                if (!textRaw) return;
+                if (!textRaw) {
+                    clipModule.allClips = [];
+                    clipModel.clear();
+                    return;
+                }
 
                 var lines = textRaw.split("\n");
-                var query = searchInput.text.toLowerCase().trim();
+                var temp = [];
 
                 for (var i = 0; i < lines.length; i++) {
                     var parts = lines[i].split("|||");
                     if (parts.length >= 4) {
-                        var id = parts[0].trim();
-                        var isImage = (parts[1].trim() === "True");
-                        var imgPath = parts[2].trim();
-                        var desc = parts[3].trim();
-
-                        if (query === "" || desc.toLowerCase().includes(query) || (isImage && "image".includes(query))) {
-                            clipModel.append({
-                                "clipId": id,
-                                "isImage": isImage,
-                                "imgPath": imgPath,
-                                "description": desc
-                            });
-                        }
+                        temp.push({
+                            "clipId": parts[0].trim(),
+                            "isImage": (parts[1].trim() === "True"),
+                            "imgPath": parts[2].trim(),
+                            "description": parts[3].trim()
+                        });
                     }
                 }
+                clipModule.allClips = temp;
+                clipModule.applyFilter();
             }
         }
     }
@@ -127,7 +138,25 @@ for line in lines:
     // Top Search & Clear Bar
     RowLayout {
         Layout.fillWidth: true
-        spacing: 10
+        spacing: 8
+
+        Rectangle {
+            width: 26; height: 26; radius: 8
+            color: clipBackMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
+            border.width: 1
+            border.color: Theme.colors.border ?? "#16161e"
+            Text {
+                anchors.centerIn: parent
+                text: "󰁍"
+                font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14
+                color: Theme.colors.text_primary ?? "#c0caf5"
+            }
+            MouseArea {
+                id: clipBackMouse
+                anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                onClicked: root.switchMode("utility", true)
+            }
+        }
 
         Text {
             text: "󰅌"
@@ -146,10 +175,22 @@ for line in lines:
             placeholderTextColor: Theme.colors.text_secondary ?? "#565f89"
             background: Item {}
 
-            onTextChanged: clipModule.refresh()
+            onTextChanged: clipModule.applyFilter()
 
-            Keys.onDownPressed: if (clipList.currentIndex < clipModel.count - 1) clipList.currentIndex++
-            Keys.onUpPressed: if (clipList.currentIndex > 0) clipList.currentIndex--
+            Keys.onDownPressed: (event) => {
+                if (clipList.currentIndex < clipModel.count - 1) {
+                    clipList.currentIndex++;
+                    clipList.positionViewAtIndex(clipList.currentIndex, ListView.Contain);
+                }
+                event.accepted = true;
+            }
+            Keys.onUpPressed: (event) => {
+                if (clipList.currentIndex > 0) {
+                    clipList.currentIndex--;
+                    clipList.positionViewAtIndex(clipList.currentIndex, ListView.Contain);
+                }
+                event.accepted = true;
+            }
             Keys.onEscapePressed: root.collapseToIdle()
             Keys.onReturnPressed: {
                 if (clipModel.count > 0 && clipList.currentIndex >= 0) {
@@ -182,6 +223,7 @@ for line in lines:
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
                     Quickshell.execDetached(["sh", "-c", "cliphist wipe && rm -rf /tmp/cliphist_thumbs/*"]);
+                    clipModule.allClips = [];
                     clipModel.clear();
                     root.collapseToIdle();
                 }
@@ -198,6 +240,18 @@ for line in lines:
         spacing: 6
         model: clipModel
         currentIndex: 0
+
+        highlightFollowsCurrentItem: true
+        highlightRangeMode: ListView.ApplyRange
+        preferredHighlightBegin: 40
+        preferredHighlightEnd: height - 54
+        highlightMoveDuration: 120
+
+        onCurrentIndexChanged: {
+            if (currentIndex >= 0 && currentIndex < count) {
+                positionViewAtIndex(currentIndex, ListView.Contain);
+            }
+        }
 
         boundsBehavior: Flickable.DragAndOvershootBounds
 
