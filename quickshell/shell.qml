@@ -97,6 +97,7 @@ ShellRoot {
     }
 
     readonly property bool isDashMode: activeMode === "idle" || activeMode === "hover"
+    readonly property bool isPopupMode: activeMode === "wifi" || activeMode === "bluetooth" || activeMode === "utility" || activeMode === "battery" || activeMode === "recorder" || activeMode === "calendar" || activeMode === "notifications" || activeMode === "shelf" || activeMode === "notes" || activeMode === "cheatsheet" || activeMode === "clipboard" || activeMode === "hover" || activeMode === "music"
 
     function collapseToIdle() {
         root.isWorkspacePeeking = false;
@@ -111,6 +112,19 @@ ShellRoot {
         } else {
             root.openedViaShortcut = fromShortcut;
             root.activeMode = newMode;
+        }
+    }
+
+    function openUtility(section = "", fromShortcut = false) {
+        root.isWorkspacePeeking = false;
+        if (root.activeMode === "utility" && typeof utilMod !== "undefined" && utilMod.activeSection === section) {
+            root.collapseToIdle();
+        } else {
+            if (typeof utilMod !== "undefined") {
+                utilMod.activeSection = section;
+            }
+            root.openedViaShortcut = fromShortcut;
+            root.activeMode = "utility";
         }
     }
 
@@ -167,7 +181,7 @@ ShellRoot {
     
     readonly property int targetHeight: {
         if (root.isNotifPopupActive && root.isDashMode) {
-            return NotchConfig.heightNotifBanner;
+            return 42;
         }
         if (activeMode === "cheatsheet" && typeof cheatsheetMod !== "undefined" && cheatsheetMod.isAddingMode) {
             return 500;
@@ -186,8 +200,8 @@ ShellRoot {
         }
         if (activeMode === "recorder") {
             return typeof recMod !== "undefined" 
-                ? NotchConfig.calculateRecorderHeight(recMod.recordAudio, recMod.isMicDropdownOpen) 
-                : 225;
+                ? NotchConfig.calculateRecorderHeight(recMod.recordAudio, recMod.isMicDropdownOpen, recMod.isRecording) 
+                : 270;
         }
         if (activeMode === "launcher") {
             return NotchConfig.calculateLauncherHeight(launcherMod.calculatedCount, launcherMod.allApps.length);
@@ -198,10 +212,35 @@ ShellRoot {
         if (activeMode === "wifi") {
             return NotchConfig.calculateWifiHeight(wifiMod.activeTab, wifiMod.wifiEnabled, wifiMod.model.count, wifiMod.listViewContentHeight);
         }
+        if (activeMode === "utility") {
+            return typeof utilMod !== "undefined"
+                ? NotchConfig.calculateUtilityHeight(utilMod.activeSection)
+                : 400;
+        }
+        if (activeMode === "idle") {
+            return 32;
+        }
+        if (activeMode === "hover") {
+            return 42;
+        }
         return NotchConfig.modeDimensions[activeMode]?.height ?? NotchConfig.modeDimensions["idle"].height;
     } 
 
-    readonly property int targetRadius: NotchConfig.modeDimensions[activeMode]?.radius ?? NotchConfig.modeDimensions["idle"].radius
+    readonly property int targetRadius: {
+        if (dashMod.isIslandActive || (root.isNotifPopupActive && root.isDashMode)) {
+            return 21;
+        }
+        if (activeMode === "idle") {
+            return 16;
+        }
+        if (activeMode === "hover") {
+            return 21;
+        }
+        if (activeMode === "utility") {
+            return 28;
+        }
+        return NotchConfig.modeDimensions[activeMode]?.radius ?? NotchConfig.modeDimensions["idle"].radius;
+    }
     readonly property int cornerCurveRadius: NotchConfig.cornerCurveRadius
 
     // OSD Engine
@@ -318,19 +357,44 @@ while True:
     GlobalShortcut { name: "toggleTransitionNotch"; onPressed: root.switchMode("transition", true) }
     GlobalShortcut { name: "resetNotchToIdle"; onPressed: root.collapseToIdle() }
     GlobalShortcut { name: "toggleBatteryNotch"; onPressed: root.switchMode("battery", true) }
-    GlobalShortcut { name: "toggleRecorderNotch"; onPressed: root.switchMode("recorder", true) }
     GlobalShortcut { name: "togglePowerMenuNotch"; onPressed: root.switchMode("powermenu", true) }
     GlobalShortcut { name: "toggleCalendarNotch"; onPressed: root.switchMode("calendar", true) }
     GlobalShortcut { name: "toggleClipboardNotch"; onPressed: root.switchMode("clipboard", true) }
     GlobalShortcut { name: "toggleShelfNotch"; onPressed: root.switchMode("shelf", true) }
     GlobalShortcut { name: "toggleNotificationsNotch"; onPressed: root.switchMode("notifications", true) }
     GlobalShortcut { name: "toggleDndNotch"; onPressed: root.dndEnabled = !root.dndEnabled }
-    GlobalShortcut { name: "toggleUtilityNotch"; onPressed: root.switchMode("utility", true) }
-    GlobalShortcut { name: "toggleMusicInfoNotch"; onPressed: root.switchMode("music", true) }
+    GlobalShortcut { 
+        name: "toggleUtilityNotch"
+        onPressed: root.openUtility("", true)
+    }
+    GlobalShortcut { 
+        name: "toggleHoverNotch"
+        onPressed: root.switchMode("hover", true)
+    }
+    GlobalShortcut { 
+        name: "toggleMusicInfoNotch"
+        onPressed: {
+            if (typeof dashMod !== "undefined" && dashMod.isMediaPlaying && root.activeMode === "idle") {
+                dashMod.showMusicInfo = !dashMod.showMusicInfo;
+            } else {
+                root.switchMode("music", true);
+            }
+        }
+    }
     GlobalShortcut { name: "toggleNotesNotch"; onPressed: root.switchMode("notes", true) }
     GlobalShortcut { name: "toggleCheatsheetNotch"; onPressed: root.switchMode("cheatsheet", true) }
-    GlobalShortcut { name: "toggleWifiNotch"; onPressed: root.switchMode("wifi", true) }
-    GlobalShortcut { name: "toggleBluetoothNotch"; onPressed: root.switchMode("bluetooth", true) }
+    GlobalShortcut { 
+        name: "toggleWifiNotch"
+        onPressed: root.switchMode("wifi", true)
+    }
+    GlobalShortcut { 
+        name: "toggleBluetoothNotch"
+        onPressed: root.switchMode("bluetooth", true)
+    }
+    GlobalShortcut { 
+        name: "toggleRecorderNotch"
+        onPressed: root.switchMode("recorder", true)
+    }
     GlobalShortcut { 
         name: "triggerScreenOcr"
         onPressed: {
@@ -454,7 +518,7 @@ while True:
                 onPaint: {
                     var ctx = getContext("2d");
                     ctx.reset();
-                    ctx.fillStyle = Theme.colors.bg ?? "#12141c";
+                    ctx.fillStyle = "#000000";
                     ctx.beginPath();
                     ctx.moveTo(width + 1, 0); ctx.lineTo(width + 1, height);
                     ctx.arcTo(width, 0, 0, 0, height);
@@ -475,7 +539,7 @@ while True:
                 onPaint: {
                     var ctx = getContext("2d");
                     ctx.reset();
-                    ctx.fillStyle = Theme.colors.bg ?? "#12141c";
+                    ctx.fillStyle = "#000000";
                     ctx.beginPath();
                     ctx.moveTo(-1, 0); ctx.lineTo(-1, height);
                     ctx.arcTo(0, 0, width, 0, height);
@@ -489,7 +553,15 @@ while True:
                 anchors.margins: -20
                 hoverEnabled: true
                 acceptedButtons: Qt.NoButton
-                enabled: false
+                enabled: root.isPopupMode
+                onContainsMouseChanged: {
+                    if (containsMouse) {
+                        root.openedViaShortcut = false;
+                        autoCollapseTimer.stop();
+                    } else if (!notchHoverHandler.hovered && !root.openedViaShortcut) {
+                        autoCollapseTimer.restart();
+                    }
+                }
             }
 
             // Notch Surface
@@ -499,14 +571,14 @@ while True:
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: root.targetWidth
                 height: root.targetHeight
-                color: Theme.colors.bg ?? "#12141c"
+                color: "#000000"
                 clip: true
                 
                 radius: 0
                 bottomLeftRadius: root.targetRadius
                 bottomRightRadius: root.targetRadius
-                Behavior on width  { NumberAnimation { duration: root.isOsdMode ? 220 : NotchConfig.animNotchResize; easing.type: Easing.OutCubic } }
-                Behavior on height { NumberAnimation { duration: root.isOsdMode ? 220 : NotchConfig.animNotchResize; easing.type: Easing.OutCubic } }
+                Behavior on width  { NumberAnimation { duration: root.isOsdMode ? 220 : NotchConfig.animNotchResize; easing.type: Easing.BezierSpline; easing.bezierCurve: [0.16, 1, 0.3, 1, 1, 1] } }
+                Behavior on height { NumberAnimation { duration: root.isOsdMode ? 220 : NotchConfig.animNotchResize; easing.type: Easing.BezierSpline; easing.bezierCurve: [0.16, 1, 0.3, 1, 1, 1] } }
 
                 // 1. Persistent Dash Layer
                 Item {
@@ -618,7 +690,10 @@ while True:
                     interval: NotchConfig.timerAutoCollapse
                     repeat: false
                     onTriggered: {
-                        if (root.activeMode === "hover" && !notchHoverHandler.hovered) {
+                        if (root.openedViaShortcut) return;
+                        if (typeof shelfMod !== "undefined" && shelfMod.isDragging) return;
+                        if (typeof utilMod !== "undefined" && (utilMod.isDraggingVolume || utilMod.isDraggingBrightness)) return;
+                        if (!notchHoverHandler.hovered && (!extendedHoverArea.enabled || !extendedHoverArea.containsMouse) && root.activeMode !== "idle" && root.activeMode !== "osd" && !root.isWorkspacePeeking) {
                             root.collapseToIdle();
                         }
                     }
@@ -628,13 +703,16 @@ while True:
                     id: notchHoverHandler
                     enabled: root.activeMode !== "osd"
                     onHoveredChanged: {
+                        console.log("NOTCH HOVERED:", hovered, "activeMode:", root.activeMode, "openedViaShortcut:", root.openedViaShortcut);
                         if (typeof shelfMod !== "undefined" && shelfMod.isDragging) return;
+                        if (typeof utilMod !== "undefined" && (utilMod.isDraggingVolume || utilMod.isDraggingBrightness)) return;
                         if (hovered) {
                             autoCollapseTimer.stop();
+                            root.openedViaShortcut = false;
                             root.isWorkspacePeeking = false;
                             if (root.activeMode === "idle") root.activeMode = "hover";
                         } else {
-                            if (root.activeMode === "hover") {
+                            if (!root.openedViaShortcut && root.isPopupMode && (!extendedHoverArea.enabled || !extendedHoverArea.containsMouse)) {
                                 autoCollapseTimer.restart();
                             }
                         }
