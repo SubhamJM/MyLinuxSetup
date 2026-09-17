@@ -145,7 +145,30 @@ ColumnLayout {
         Layout.preferredHeight: 26
         Layout.leftMargin: 12
         Layout.rightMargin: 12
-        spacing: 8
+        // Back to Utility Button
+        Rectangle {
+            width: 24; height: 24; radius: 7
+            color: themeBackMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
+            border.width: 1
+            border.color: Theme.colors.border ?? "#16161e"
+            scale: themeBackMouse.pressed ? 0.90 : 1.0
+            Behavior on scale { NumberAnimation { duration: 90 } }
+
+            Text {
+                anchors.centerIn: parent
+                text: "󰁍"
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 13
+                color: Theme.colors.text_primary ?? "#c0caf5"
+            }
+
+            MouseArea {
+                id: themeBackMouse
+                anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                hoverEnabled: true
+                onClicked: root.switchMode("utility", true)
+            }
+        }
 
         // Search Icon
         Text {

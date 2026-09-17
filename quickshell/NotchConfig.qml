@@ -51,20 +51,20 @@ QtObject {
         "wifi":          { width: 420, height: 380, radius: 26 }, 
         "bluetooth":     { width: 420, height: 380, radius: 26 },
         "recorder":      { width: 420, height: 275, radius: 26 },
-        "battery":       { width: 540, height: 435, radius: 18 },
-        "powermenu":     { width: 440, height: 100, radius: 14 },
+        "battery":       { width: 460, height: 285, radius: 26 },
+        "powermenu":     { width: 460, height: 100, radius: 14 },
         "calendar":      { width: 320, height: 280, radius: 12 },
         "clipboard":     { width: 460, height: 380, radius: 12 },
         "shelf":         { width: 460, height: 380, radius: 12 },
-        "utility":       { width: 460, height: 300, radius: 26 },
+        "utility":       { width: 460, height: 358, radius: 26 },
         "music":         { width: 440, height: 210, radius: 14 },
         "notes":         { width: 680, height: 480, radius: 14 },
         "cheatsheet":    { width: 800, height: 440, radius: 14 }
     })
 
     function calculateUtilityHeight(activeSection) {
-        if (activeSection === "audio") return 320;
-        return 300;
+        if (activeSection === "audio") return 360;
+        return 358;
     }
 
     // ==========================================
@@ -115,11 +115,11 @@ QtObject {
     }
 
     function calculateWifiHeight(activeTab, wifiEnabled, modelCount, listContentHeight) {
-        if (activeTab === "hotspot") return 390;
+        if (activeTab === "hotspot") return 415;
         if (!wifiEnabled) return 260;
         if (modelCount === 0) return 270;
-        var base = 205;
+        var base = 180;
         var dynamicListHeight = Math.min(220, Math.max(65, listContentHeight));
-        return Math.min(430, Math.max(270, base + dynamicListHeight));
+        return Math.min(420, Math.max(250, base + dynamicListHeight));
     }
 }

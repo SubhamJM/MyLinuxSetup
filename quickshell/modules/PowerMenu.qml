@@ -4,11 +4,11 @@ import QtQuick.Controls
 import Quickshell
 import "../"
 
-RowLayout {
+FocusScope {
     id: powerMenu
     Layout.fillWidth: true
     Layout.fillHeight: true
-    spacing: 16
+    focus: true
 
     property int currentIndex: 1
 
@@ -16,6 +16,7 @@ RowLayout {
     Keys.onRightPressed: { currentIndex = (currentIndex + 1) % 5; }
     Keys.onReturnPressed: { triggerSelected(); }
     Keys.onSpacePressed: { triggerSelected(); }
+    Keys.onEscapePressed: { root.activeMode = "idle"; }
 
     function triggerSelected() {
         var cmds = [
@@ -28,6 +29,50 @@ RowLayout {
         Quickshell.execDetached(["sh", "-c", cmds[currentIndex]]);
         root.activeMode = "idle";
     }
+
+    RowLayout {
+        anchors.fill: parent
+        spacing: 0
+
+        // Back to Utility Button (Left)
+        Rectangle {
+            Layout.preferredWidth: 32
+            Layout.preferredHeight: 32
+            Layout.alignment: Qt.AlignVCenter
+            Layout.leftMargin: 4
+            radius: 9
+            color: backMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : Qt.rgba(1, 1, 1, 0.04)
+            border.width: 1
+            border.color: backMouse.containsMouse ? (Theme.colors.accent ?? "#7aa2f7") : Qt.rgba(1, 1, 1, 0.08)
+            scale: backMouse.pressed ? 0.90 : (backMouse.containsMouse ? 1.05 : 1.0)
+            Behavior on scale { NumberAnimation { duration: 90 } }
+            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on border.color { ColorAnimation { duration: 150 } }
+
+            Text {
+                anchors.centerIn: parent
+                text: "󰁍"
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 15
+                color: backMouse.containsMouse ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.text_secondary ?? "#8a8f9e")
+            }
+
+            MouseArea {
+                id: backMouse
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                hoverEnabled: true
+                onClicked: root.switchMode("utility", true)
+            }
+        }
+
+        // Expanding Left Spacer to ensure dead-center placement of buttons
+        Item { Layout.fillWidth: true }
+
+        // Centered Power Buttons Container
+        RowLayout {
+            Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
+            spacing: 16
 
     // Hold Button Component — solid, filled Android-style circular tile with a label
     component HoldButton: Item {
@@ -228,4 +273,42 @@ RowLayout {
         actionCmd: "systemctl poweroff"
         activeColor: "#f44336"
     }
+        }
+
+        // Expanding Right Spacer to ensure dead-center placement of buttons
+        Item { Layout.fillWidth: true }
+
+        // Counterbalance Close Button on the right (matching Back button)
+        Rectangle {
+            Layout.preferredWidth: 32
+            Layout.preferredHeight: 32
+            Layout.alignment: Qt.AlignVCenter
+            Layout.rightMargin: 4
+            radius: 9
+            color: closeMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : Qt.rgba(1, 1, 1, 0.04)
+            border.width: 1
+            border.color: closeMouse.containsMouse ? "#f44336" : Qt.rgba(1, 1, 1, 0.08)
+            scale: closeMouse.pressed ? 0.90 : (closeMouse.containsMouse ? 1.05 : 1.0)
+            Behavior on scale { NumberAnimation { duration: 90 } }
+            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on border.color { ColorAnimation { duration: 150 } }
+
+            Text {
+                anchors.centerIn: parent
+                text: "󰅖"
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 15
+                color: closeMouse.containsMouse ? "#f44336" : (Theme.colors.text_secondary ?? "#8a8f9e")
+            }
+
+            MouseArea {
+                id: closeMouse
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                hoverEnabled: true
+                onClicked: root.activeMode = "idle"
+            }
+        }
+    }
 }
+

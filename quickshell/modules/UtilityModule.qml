@@ -28,21 +28,50 @@ Item {
     property bool isDraggingBrightness: false
 
     readonly property color colBg: "#000000"
-    readonly property color colCard: "#161924"
-    readonly property color colCardHover: "#202534"
+    readonly property color colCard: Theme.colors.card_bg ?? "#161924"
+    readonly property color colCardHover: Theme.colors.hover_bg ?? "#202534"
     readonly property color colAccent: Theme.colors.accent ?? "#7aa2f7"
     readonly property color colText: Theme.colors.text_primary ?? "#eceff4"
     readonly property color colSubtext: Theme.colors.text_secondary ?? "#d8dee9"
     readonly property color colMuted: Theme.colors.text_muted ?? "#81a1c1"
 
+    // Reactive Connectivity Data
     readonly property bool wifiEnabled: typeof wifiMod !== "undefined" ? wifiMod.wifiEnabled : true
     readonly property bool btEnabled: typeof Bluetooth !== "undefined" && Bluetooth.defaultAdapter ? Bluetooth.defaultAdapter.enabled : false
     readonly property string activeNetName: typeof dashMod !== "undefined" ? dashMod.activeNetName : ""
+    readonly property string activeNetType: typeof dashMod !== "undefined" ? dashMod.activeNetType : "wifi"
+    readonly property int activeNetSignal: typeof dashMod !== "undefined" ? dashMod.activeNetSignal : 0
     readonly property string activeBtName: typeof dashMod !== "undefined" ? dashMod.btDeviceName : ""
+    readonly property string activeBtBattery: typeof dashMod !== "undefined" ? dashMod.btIslandBattery : ""
 
     function forceNotesFocus() {}
 
-    // 1. Night Light (hyprsunset)
+    // ========================================================
+    // HARDWARE ACTIONS & PROCESSES
+    // ========================================================
+
+    // 1. Wi-Fi Toggle & Open
+    function toggleWifi() {
+        var willEnable = !utilModule.wifiEnabled;
+        if (typeof wifiMod !== "undefined") {
+            wifiMod.wifiEnabled = willEnable;
+        }
+        Quickshell.execDetached(["nmcli", "radio", "wifi", willEnable ? "on" : "off"]);
+        if (typeof wifiMod !== "undefined") {
+            wifiMod.refreshStatus();
+        }
+    }
+
+    // 2. Bluetooth Toggle & Open
+    function toggleBluetooth() {
+        if (typeof Bluetooth !== "undefined" && Bluetooth.defaultAdapter) {
+            Bluetooth.defaultAdapter.enabled = !Bluetooth.defaultAdapter.enabled;
+        } else {
+            Quickshell.execDetached(["rfkill", "toggle", "bluetooth"]);
+        }
+    }
+
+    // 3. Night Light (hyprsunset)
     Process {
         id: checkNightLight
         running: false
@@ -65,7 +94,7 @@ Item {
         checkNightLight.running = true;
     }
 
-    // 2. Caffeine (systemd-inhibit)
+    // 4. Caffeine (systemd-inhibit)
     Process {
         id: caffeineInhibitor
         running: false
@@ -82,7 +111,25 @@ Item {
         }
     }
 
-    // 3. Audio Volume & Mute (wpctl)
+    // 5. Screen OCR
+    function triggerOcr() {
+        root.collapseToIdle();
+        Quickshell.execDetached(["/bin/sh", "-c", Qt.resolvedUrl("../scripts/snip_ocr.sh").toString().replace("file://", "")]);
+    }
+
+    // 6. Color Picker (hyprpicker)
+    function triggerColorPicker() {
+        root.collapseToIdle();
+        Quickshell.execDetached(["sh", "-c", "sleep 0.15; hyprpicker -a && notify-send 'Color Picker' \"Copied $(wl-paste) to clipboard\""]);
+    }
+
+    // 7. Area Screenshot (grim + slurp)
+    function triggerScreenshot() {
+        root.collapseToIdle();
+        Quickshell.execDetached(["sh", "-c", 'sleep 0.15; F="$HOME/Pictures/Screenshots/Screenshot_$(date +%Y%m%d_%H%M%S).png"; mkdir -p "$(dirname "$F")"; grim -g "$(slurp)" "$F" && wl-copy < "$F" && notify-send "Screenshot" "Area copied to clipboard and saved"']);
+    }
+
+    // 8. Audio Volume & Mute (wpctl)
     Process {
         id: fetchVolumeProcess
         running: false
@@ -140,7 +187,7 @@ Item {
         fetchMicProcess.running = true;
     }
 
-    // 4. Display Brightness (brightnessctl)
+    // 9. Display Brightness (brightnessctl)
     Process {
         id: fetchBrightnessProcess
         running: false
@@ -161,14 +208,14 @@ Item {
         Quickshell.execDetached(["brightnessctl", "set", pct + "%"]);
     }
 
-    // 5. Audio Devices Data (Sinks & Sources)
+    // 10. Audio Devices Data (Sinks & Sources)
     property var audioSinks: []
     property var audioSources: []
 
     Process {
         id: fetchAudioDevices
         running: false
-        command: ["python3", Quickshell.env("HOME") + "/.config/quickshell/my_own/scripts/audio_devices.py"]
+        command: ["python3", Qt.resolvedUrl("../scripts/audio_devices.py").toString().replace("file://", "")]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -181,13 +228,13 @@ Item {
     }
 
     function setDefaultSink(sinkName) {
-        Quickshell.execDetached(["python3", Quickshell.env("HOME") + "/.config/quickshell/my_own/scripts/audio_devices.py", "set-sink", sinkName]);
+        Quickshell.execDetached(["python3", Qt.resolvedUrl("../scripts/audio_devices.py").toString().replace("file://", ""), "set-sink", sinkName]);
         fetchAudioDevices.running = true;
         fetchVolumeProcess.running = true;
     }
 
     function setDefaultSource(sourceName) {
-        Quickshell.execDetached(["python3", Quickshell.env("HOME") + "/.config/quickshell/my_own/scripts/audio_devices.py", "set-source", sourceName]);
+        Quickshell.execDetached(["python3", Qt.resolvedUrl("../scripts/audio_devices.py").toString().replace("file://", ""), "set-source", sourceName]);
         fetchAudioDevices.running = true;
         fetchMicProcess.running = true;
     }
@@ -207,12 +254,149 @@ Item {
     }
 
     // ========================================================
-    // ========================================================
-    // REUSABLE ANDROID 17 MATERIAL 3 EXPRESSIVE COMPONENTS
+    // REUSABLE MODERN BENTO GRID COMPONENTS
     // ========================================================
 
-    // 1. Inir Style Tactile Circular Button (with label underneath, solid 3D depth, no border)
-    component InirRoundBtn: Item {
+    // 1. Bento Split Pill for Wi-Fi & Bluetooth (Left: Toggle on/off | Right: Open section)
+    component BentoSplitPill: Rectangle {
+        id: pill
+        property string glyph: ""
+        property string title: ""
+        property string subtitle: ""
+        property bool isActive: false
+        property color activeColor: utilModule.colAccent
+        signal toggleClicked()
+        signal detailClicked()
+
+        Layout.fillWidth: true
+        Layout.preferredWidth: 1
+        implicitHeight: 56
+        radius: 16
+
+        color: pill.isActive ? Qt.rgba(pill.activeColor.r, pill.activeColor.g, pill.activeColor.b, 0.12) : "#141723"
+        border.width: 1
+        border.color: pill.isActive ? Qt.rgba(pill.activeColor.r, pill.activeColor.g, pill.activeColor.b, 0.32) : Qt.rgba(255, 255, 255, 0.06)
+
+        Behavior on color { ColorAnimation { duration: 150 } }
+        Behavior on border.color { ColorAnimation { duration: 150 } }
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.margins: 6
+            spacing: 6
+
+            // Left: Circular Toggle Button (Turns Radio ON / OFF)
+            Item {
+                width: 44
+                height: 44
+
+                Rectangle {
+                    id: toggleRect
+                    anchors.centerIn: parent
+                    width: 44
+                    height: 44
+                    radius: 13
+                    color: pill.isActive ? pill.activeColor : (toggleMouse.containsMouse ? "#262b3c" : "#1b1f2e")
+                    border.width: 1
+                    border.color: pill.isActive ? Qt.rgba(255, 255, 255, 0.2) : (toggleMouse.containsMouse ? Qt.rgba(255, 255, 255, 0.12) : Qt.rgba(255, 255, 255, 0.04))
+
+                    scale: toggleMouse.pressed ? 0.90 : (toggleMouse.containsMouse ? 1.05 : 1.0)
+                    Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
+                    Behavior on color { ColorAnimation { duration: 120 } }
+
+                    MaterialSymbol {
+                        anchors.centerIn: parent
+                        text: pill.glyph
+                        fill: pill.isActive ? 1 : 0
+                        iconSize: 21
+                        color: pill.isActive ? "#09101d" : "#94a3b8"
+                        Behavior on color { ColorAnimation { duration: 100 } }
+                    }
+
+                    MouseArea {
+                        id: toggleMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: pill.toggleClicked()
+                    }
+                }
+            }
+
+            // Divider Line
+            Rectangle {
+                width: 1
+                height: 24
+                radius: 0.5
+                color: Qt.rgba(255, 255, 255, 0.08)
+            }
+
+            // Right: Detail Area (Opens Main Wi-Fi / Bluetooth Module)
+            Rectangle {
+                id: detailArea
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                radius: 11
+                color: detailMouse.containsMouse ? Qt.rgba(255, 255, 255, 0.06) : "transparent"
+                Behavior on color { ColorAnimation { duration: 100 } }
+
+                scale: detailMouse.pressed ? 0.98 : 1.0
+                Behavior on scale { NumberAnimation { duration: 80 } }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 6
+                    anchors.rightMargin: 8
+                    spacing: 4
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 1
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: pill.title
+                            font.family: "Noto Sans"
+                            font.pixelSize: 12
+                            font.weight: Font.DemiBold
+                            color: pill.isActive ? "#f8fafc" : "#cbd5e1"
+                            elide: Text.ElideRight
+                            maximumLineCount: 1
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: pill.subtitle
+                            font.family: "Noto Sans"
+                            font.pixelSize: 10
+                            font.weight: Font.Normal
+                            color: pill.isActive ? pill.activeColor : "#64748b"
+                            elide: Text.ElideRight
+                            maximumLineCount: 1
+                        }
+                    }
+
+                    MaterialSymbol {
+                        text: "chevron_right"
+                        iconSize: 16
+                        color: detailMouse.containsMouse ? "#ffffff" : (pill.isActive ? "#94a3b8" : "#475569")
+                        Behavior on color { ColorAnimation { duration: 90 } }
+                    }
+                }
+
+                MouseArea {
+                    id: detailMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: pill.detailClicked()
+                }
+            }
+        }
+    }
+
+    // 2. Bento Quick Action Squircle Button (Grid Toggle with centered label underneath)
+    component BentoQuickBtn: Item {
         id: btn
         property string glyph: ""
         property string label: ""
@@ -222,44 +406,34 @@ Item {
 
         Layout.fillWidth: true
         Layout.preferredWidth: 1
-        implicitHeight: 70
-
-        scale: btnMouse.pressed ? 0.92 : (btnMouse.containsMouse ? 1.035 : 1.0)
-        Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
+        implicitHeight: 58
 
         Column {
             anchors.centerIn: parent
-            spacing: 5
+            spacing: 4
             width: parent.width
 
-            // Solid 3D Circular Button (no border)
+            // Tactile Squircle Icon Card
             Rectangle {
-                id: circleBg
-                width: 48
-                height: 48
-                radius: 24
+                id: squircleBg
+                width: 42
+                height: 42
+                radius: 13
                 anchors.horizontalCenter: parent.horizontalCenter
-                color: btn.lit ? (btn.tint || utilModule.colAccent) : (btnMouse.containsMouse ? "#262b3d" : "#171a27")
-                border.width: 0
-                Behavior on color { ColorAnimation { duration: 130 } }
+                color: btn.lit ? (btn.tint || utilModule.colAccent) : (btnMouse.containsMouse ? "#24293c" : "#161926")
+                border.width: 1
+                border.color: btn.lit ? Qt.rgba(btn.tint.r, btn.tint.g, btn.tint.b, 0.4) : (btnMouse.containsMouse ? Qt.rgba(255, 255, 255, 0.1) : Qt.rgba(255, 255, 255, 0.04))
 
-                // Bottom 3D shadow rim
-                Rectangle {
-                    anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 1
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: 32
-                    height: 2.5
-                    radius: 1.25
-                    color: btn.lit ? Qt.rgba(0, 0, 0, 0.25) : Qt.rgba(0, 0, 0, 0.45)
-                }
+                scale: btnMouse.pressed ? 0.90 : (btnMouse.containsMouse ? 1.05 : 1.0)
+                Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
+                Behavior on color { ColorAnimation { duration: 120 } }
 
                 MaterialSymbol {
                     anchors.centerIn: parent
                     text: btn.glyph
                     fill: btn.lit ? 1 : 0
-                    iconSize: 22
-                    color: btn.lit ? "#09101d" : "#e2e8f0"
+                    iconSize: 20
+                    color: btn.lit ? "#09101d" : (btnMouse.containsMouse ? "#f8fafc" : "#94a3b8")
                     Behavior on color { ColorAnimation { duration: 100 } }
                 }
             }
@@ -271,7 +445,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 text: btn.label
                 font.family: "Noto Sans"
-                font.pixelSize: 11
+                font.pixelSize: 10
                 font.weight: btn.lit ? Font.Bold : Font.Medium
                 color: btn.lit ? "#f1f5f9" : "#94a3b8"
                 elide: Text.ElideRight
@@ -288,7 +462,7 @@ Item {
         }
     }
 
-    // 2. Android 16/17 Sleek Slim Capsule Slider (32px height, no border, unified accent)
+    // 3. Android 16/17 Sleek Slim Capsule Slider (34px height, integrated icon, mouse wheel support)
     component AndroidHorizontalSlider: Rectangle {
         id: slider
         property real value: 0.5
@@ -303,27 +477,15 @@ Item {
         readonly property real currentRatio: Math.max(0.0, Math.min(1.0, slider.dragVal >= 0 ? slider.dragVal : slider.value))
 
         Layout.fillWidth: true
-        implicitHeight: 32
-        radius: 16
+        implicitHeight: 34
+        radius: 17
 
-        color: "#141722"
-        border.width: 0
+        color: "#141724"
+        border.width: 1
+        border.color: Qt.rgba(255, 255, 255, 0.05)
 
-        scale: sliderMouse.pressed ? 0.99 : (sliderMouse.containsMouse ? 1.008 : 1.0)
+        scale: sliderMouse.pressed ? 0.985 : (sliderMouse.containsMouse ? 1.006 : 1.0)
         Behavior on scale { NumberAnimation { duration: 90 } }
-
-        // Bottom 3D shadow rim
-        Rectangle {
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 1
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.leftMargin: 12
-            anchors.rightMargin: 12
-            height: 2
-            radius: 1
-            color: Qt.rgba(0, 0, 0, 0.4)
-        }
 
         // Dynamic Fill Track
         Item {
@@ -343,22 +505,10 @@ Item {
                     enabled: slider.dragVal < 0
                     NumberAnimation { duration: 90; easing.type: Easing.OutCubic }
                 }
-
-                // 3D Right Highlight Meniscus on leading edge
-                Rectangle {
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    anchors.margins: 2
-                    width: 2.5
-                    radius: 1.25
-                    color: Qt.rgba(255, 255, 255, 0.35)
-                    visible: slider.currentRatio > 0.04 && !slider.muted
-                }
             }
         }
 
-        // Left Icon Container (Dedicated circle matching capsule height)
+        // Left Icon Container
         Item {
             id: iconArea
             anchors.left: parent.left
@@ -387,7 +537,9 @@ Item {
             font.family: "Noto Sans"
             font.pixelSize: 11
             font.weight: Font.Bold
-            color: slider.muted ? "#f87171" : (slider.currentRatio > 0.85 ? "#09101d" : "#ffffff")
+            color: slider.muted ? "#f87171" : (slider.currentRatio > 0.94 ? "#09101d" : "#ffffff")
+            style: Text.Outline
+            styleColor: slider.currentRatio > 0.94 ? "transparent" : Qt.rgba(0, 0, 0, 0.45)
             Behavior on color { ColorAnimation { duration: 90 } }
         }
 
@@ -399,13 +551,13 @@ Item {
             preventStealing: true
 
             function calcRatio(mouseX) {
-                if (mouseX <= 16) return 0.0;
-                if (mouseX >= width - 16) return 1.0;
-                return (mouseX - 16) / (width - 32);
+                if (mouseX <= 17) return 0.0;
+                if (mouseX >= width - 17) return 1.0;
+                return (mouseX - 17) / (width - 34);
             }
 
             onPressed: (mouse) => {
-                if (mouse.x <= 32) {
+                if (mouse.x <= 34) {
                     slider.iconClicked();
                     return;
                 }
@@ -424,15 +576,20 @@ Item {
                 utilModule.isDraggingBrightness = false;
                 utilModule.isDraggingVolume = false;
             }
+
+            onWheel: (wheel) => {
+                var step = wheel.angleDelta.y > 0 ? 0.05 : -0.05;
+                slider.moved(Math.max(0.0, Math.min(1.0, slider.currentRatio + step)));
+            }
         }
     }
 
-    // 3. Compact 3D Header Quick Action Button (solid, no border, tactile depth)
+    // 4. Compact 3D Header Quick Action Button
     component HeaderQuickBtn: Rectangle {
         id: hbtn
         property string glyph: ""
         property color iconColor: "#e2e8f0"
-        property color customBg: "#1a1d2b"
+        property color customBg: "#181b28"
         property color hoverBg: "#252b3d"
         signal clicked()
 
@@ -440,22 +597,12 @@ Item {
         height: 28
         radius: 8
         color: hmouse.containsMouse ? hbtn.hoverBg : hbtn.customBg
-        border.width: 0
+        border.width: 1
+        border.color: hmouse.containsMouse ? Qt.rgba(255, 255, 255, 0.1) : Qt.rgba(255, 255, 255, 0.04)
 
         scale: hmouse.pressed ? 0.90 : (hmouse.containsMouse ? 1.06 : 1.0)
         Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
         Behavior on color { ColorAnimation { duration: 110 } }
-
-        // Bottom 3D shadow rim
-        Rectangle {
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 1
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: parent.width - 6
-            height: 2
-            radius: 1
-            color: Qt.rgba(0, 0, 0, 0.4)
-        }
 
         MaterialSymbol {
             anchors.centerIn: parent
@@ -486,23 +633,14 @@ Item {
             Layout.preferredHeight: 32
             spacing: 8
 
-            // Tactile Action Icon or Back Button
+            // Tactile Back / Exit Button
             Rectangle {
                 width: 28; height: 28; radius: 8
-                color: headerBackMouse.containsMouse ? "#252b3d" : "#1a1d2b"
-                border.width: 0
+                color: headerBackMouse.containsMouse ? "#252b3d" : "#181b28"
+                border.width: 1
+                border.color: headerBackMouse.containsMouse ? Qt.rgba(255, 255, 255, 0.1) : Qt.rgba(255, 255, 255, 0.04)
                 scale: headerBackMouse.pressed ? 0.90 : 1.0
                 Behavior on scale { NumberAnimation { duration: 90 } }
-
-                Rectangle {
-                    anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 1
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: parent.width - 6
-                    height: 2
-                    radius: 1
-                    color: Qt.rgba(0, 0, 0, 0.4)
-                }
 
                 MaterialSymbol {
                     anchors.centerIn: parent
@@ -526,9 +664,8 @@ Item {
                 }
             }
 
-            // Title & Date Pill
+            // Title & Date Subtitle
             ColumnLayout {
-                Layout.fillWidth: true
                 spacing: 0
 
                 Text {
@@ -542,14 +679,17 @@ Item {
                 Text {
                     text: utilModule.activeSection !== "" ? "Select preferred output & input" : Qt.formatDate(clock.date, "dddd, d MMMM")
                     font.family: "Noto Sans"
-                    font.pixelSize: 11
+                    font.pixelSize: 10
                     color: "#94a3b8"
                 }
             }
 
-            // Quick Shortcut Badges (Drop files, OCR, Notes, Clipboard, Theme, Lock, Power)
+            Item { Layout.fillWidth: true }
+
+            // Quick Shortcut Badges (Shelf, OCR, Notes, Clipboard, Theme, Lock, Power)
             RowLayout {
                 spacing: 5
+                Layout.alignment: Qt.AlignRight
                 visible: utilModule.activeSection === ""
 
                 // 1. Drop files / Shelf
@@ -561,10 +701,7 @@ Item {
                 // 2. OCR Snip
                 HeaderQuickBtn {
                     glyph: "document_scanner"
-                    onClicked: {
-                        root.collapseToIdle();
-                        Quickshell.execDetached(["/bin/sh", "-c", "$HOME/.config/quickshell/my_own/scripts/snip_ocr.sh"]);
-                    }
+                    onClicked: utilModule.triggerOcr()
                 }
 
                 // 3. Notes
@@ -605,113 +742,142 @@ Item {
             }
         }
 
-        // ── 1. MAIN CONTROL CENTER VIEW ────────────────────────────
+        // ── 1. MAIN CONTROL CENTER VIEW (MODERN BENTO GRID) ────────
         ColumnLayout {
             id: mainViewContainer
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: 10
+            spacing: 9
             visible: utilModule.activeSection === ""
 
-            // 1. TWO 2x2 GRIDS SIDE-BY-SIDE (Inir Style: Circular Icon + Label Underneath)
+            // 1. HERO BENTO SPLIT PILLS: Wi-Fi & Bluetooth
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 10
+                spacing: 8
 
-                // LEFT 2x2: Connectivity & Audio (Wi-Fi, Bluetooth, Focus, Mic)
-                GridLayout {
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 1
-                    columns: 2
-                    rowSpacing: 8
-                    columnSpacing: 8
-
-                    // Wi-Fi
-                    InirRoundBtn {
-                        glyph: (typeof dashMod !== "undefined" && dashMod.activeNetType === "eth") ? "lan" : (utilModule.wifiEnabled ? "wifi" : "wifi_off")
-                        label: (typeof dashMod !== "undefined" && dashMod.activeNetType === "eth") ? "Ethernet" : (utilModule.activeNetName !== "" ? utilModule.activeNetName : (utilModule.wifiEnabled ? "Wi-Fi" : "Off"))
-                        lit: utilModule.wifiEnabled
-                        onClicked: root.switchMode("wifi", false)
+                // Wi-Fi Split Pill
+                BentoSplitPill {
+                    glyph: (utilModule.activeNetType === "eth") ? "lan" : (utilModule.wifiEnabled ? "wifi" : "wifi_off")
+                    title: (utilModule.activeNetType === "eth") ? "Ethernet" : (utilModule.wifiEnabled ? (utilModule.activeNetName !== "" ? utilModule.activeNetName : "Wi-Fi") : "Wi-Fi")
+                    subtitle: {
+                        if (utilModule.activeNetType === "eth") return "Connected • Wired";
+                        if (!utilModule.wifiEnabled) return "Disabled • Tap to turn on";
+                        if (utilModule.activeNetName !== "") {
+                            return utilModule.activeNetSignal > 0 ? ("Connected • " + utilModule.activeNetSignal + "%") : "Connected";
+                        }
+                        return "Disconnected • Search";
                     }
-
-                    // Bluetooth
-                    InirRoundBtn {
-                        glyph: utilModule.btEnabled ? "bluetooth" : "bluetooth_disabled"
-                        label: utilModule.activeBtName !== "" ? utilModule.activeBtName : "Bluetooth"
-                        lit: utilModule.btEnabled
-                        onClicked: root.switchMode("bluetooth", false)
-                    }
-
-                    // Focus Mode (DND)
-                    InirRoundBtn {
-                        glyph: root.dndEnabled ? "do_not_disturb_on" : "do_not_disturb_off"
-                        label: "Focus"
-                        lit: root.dndEnabled
-                        onClicked: root.dndEnabled = !root.dndEnabled
-                    }
-
-                    // Microphone
-                    InirRoundBtn {
-                        glyph: utilModule.audioMicMuted ? "mic_off" : "mic"
-                        label: utilModule.audioMicMuted ? "Muted" : "Mic"
-                        lit: !utilModule.audioMicMuted
-                        onClicked: utilModule.toggleMicMute()
-                    }
+                    isActive: utilModule.wifiEnabled
+                    onToggleClicked: utilModule.toggleWifi()
+                    onDetailClicked: root.switchMode("wifi", false)
                 }
 
-                // RIGHT 2x2: Quick Utilities (Capture, Record, Devices, Caffeine)
-                GridLayout {
-                    Layout.fillWidth: true
-                    Layout.preferredWidth: 1
-                    columns: 2
-                    rowSpacing: 8
-                    columnSpacing: 8
-
-                    // Capture
-                    InirRoundBtn {
-                        glyph: "crop"
-                        label: "Capture"
-                        lit: false
-                        onClicked: {
-                            root.collapseToIdle();
-                            Quickshell.execDetached(["sh", "-c", 'F="$HOME/Pictures/Screenshots/Screenshot_$(date +%Y%m%d_%H%M%S).png"; mkdir -p "$(dirname "$F")"; grim -g "$(slurp)" "$F" && wl-copy < "$F" && notify-send "Screenshot" "Area copied to clipboard and saved"']);
+                // Bluetooth Split Pill
+                BentoSplitPill {
+                    glyph: utilModule.btEnabled ? "bluetooth" : "bluetooth_disabled"
+                    title: utilModule.btEnabled ? (utilModule.activeBtName !== "" ? utilModule.activeBtName : "Bluetooth") : "Bluetooth"
+                    subtitle: {
+                        if (!utilModule.btEnabled) return "Disabled • Tap to turn on";
+                        if (utilModule.activeBtName !== "") {
+                            return utilModule.activeBtBattery !== "" ? ("Connected • " + utilModule.activeBtBattery) : "Connected";
                         }
+                        return "Ready to pair";
                     }
-
-                    // Record
-                    InirRoundBtn {
-                        glyph: (typeof recMod !== "undefined" && recMod.isRecording) ? "stop_circle" : "radio_button_checked"
-                        label: (typeof recMod !== "undefined" && recMod.isRecording) ? "Recording" : "Record"
-                        lit: typeof recMod !== "undefined" && recMod.isRecording
-                        tint: "#f87171"
-                        onClicked: root.switchMode("recorder", false)
-                    }
-
-                    // Devices
-                    InirRoundBtn {
-                        glyph: "headphones"
-                        label: "Devices"
-                        lit: utilModule.activeSection === "audio"
-                        onClicked: {
-                            utilModule.activeSection = "audio";
-                            fetchAudioDevices.running = true;
-                        }
-                    }
-
-                    // Caffeine
-                    InirRoundBtn {
-                        glyph: "coffee"
-                        label: "Caffeine"
-                        lit: utilModule.caffeineActive
-                        onClicked: utilModule.toggleCaffeine()
-                    }
+                    isActive: utilModule.btEnabled
+                    onToggleClicked: utilModule.toggleBluetooth()
+                    onDetailClicked: root.switchMode("bluetooth", false)
                 }
             }
 
-            // 2. SLEEK HORIZONTAL SLIDERS (Brightness & Volume, 32px height)
+            // 2. SECONDARY 4x2 BENTO QUICK TOGGLES GRID
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 4
+                rowSpacing: 6
+                columnSpacing: 8
+
+                // Row 1:
+                // 1. Night Light (hyprsunset)
+                BentoQuickBtn {
+                    glyph: "nightlight"
+                    label: "Night Light"
+                    lit: utilModule.nightLightActive
+                    tint: "#f59e0b"
+                    onClicked: utilModule.toggleNightLight()
+                }
+
+                // 2. Color Picker (hyprpicker)
+                BentoQuickBtn {
+                    glyph: "colorize"
+                    label: "Picker"
+                    lit: false
+                    tint: "#7dcfff"
+                    onClicked: utilModule.triggerColorPicker()
+                }
+
+                // 3. Focus Mode / DND
+                BentoQuickBtn {
+                    glyph: root.dndEnabled ? "do_not_disturb_on" : "do_not_disturb_off"
+                    label: "Focus"
+                    lit: root.dndEnabled
+                    tint: "#bb9af7"
+                    onClicked: root.dndEnabled = !root.dndEnabled
+                }
+
+                // 4. Caffeine (idle sleep inhibitor)
+                BentoQuickBtn {
+                    glyph: "coffee"
+                    label: "Caffeine"
+                    lit: utilModule.caffeineActive
+                    tint: "#ff9e64"
+                    onClicked: utilModule.toggleCaffeine()
+                }
+
+                // Row 2:
+                // 5. Screenshot Capture (grim + slurp)
+                BentoQuickBtn {
+                    glyph: "crop"
+                    label: "Capture"
+                    lit: false
+                    tint: "#2ac3de"
+                    onClicked: utilModule.triggerScreenshot()
+                }
+
+                // 6. Screen Recorder
+                BentoQuickBtn {
+                    glyph: (typeof recMod !== "undefined" && recMod.isRecording) ? "stop_circle" : "radio_button_checked"
+                    label: (typeof recMod !== "undefined" && recMod.isRecording) ? "Recording" : "Record"
+                    lit: typeof recMod !== "undefined" && recMod.isRecording
+                    tint: "#f7768e"
+                    onClicked: root.switchMode("recorder", false)
+                }
+
+                // 7. Sound Devices Switcher
+                BentoQuickBtn {
+                    glyph: "headphones"
+                    label: "Devices"
+                    lit: utilModule.activeSection === "audio"
+                    tint: utilModule.colAccent
+                    onClicked: {
+                        utilModule.activeSection = "audio";
+                        fetchAudioDevices.running = true;
+                    }
+                }
+
+                // 8. Microphone Mute
+                BentoQuickBtn {
+                    glyph: utilModule.audioMicMuted ? "mic_off" : "mic"
+                    label: utilModule.audioMicMuted ? "Muted" : "Mic"
+                    lit: !utilModule.audioMicMuted
+                    tint: utilModule.audioMicMuted ? "#f7768e" : utilModule.colAccent
+                    onClicked: utilModule.toggleMicMute()
+                }
+            }
+
+            // 3. SLEEK HORIZONTAL CAPSULE SLIDERS (Brightness & Volume)
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 8
+                spacing: 6
 
                 // Brightness Slider
                 AndroidHorizontalSlider {
@@ -764,9 +930,9 @@ Item {
                     Layout.fillWidth: true
                     height: 42
                     radius: 14
-                    color: modelData.isDefault ? Qt.rgba(utilModule.colAccent.r, utilModule.colAccent.g, utilModule.colAccent.b, 0.22) : (sinkMouse.containsMouse ? utilModule.colCardHover : utilModule.colCard)
+                    color: modelData.isDefault ? Qt.rgba(utilModule.colAccent.r, utilModule.colAccent.g, utilModule.colAccent.b, 0.20) : (sinkMouse.containsMouse ? utilModule.colCardHover : utilModule.colCard)
                     border.width: 1
-                    border.color: modelData.isDefault ? utilModule.colAccent : Qt.rgba(1, 1, 1, 0.08)
+                    border.color: modelData.isDefault ? utilModule.colAccent : Qt.rgba(255, 255, 255, 0.06)
 
                     RowLayout {
                         anchors.fill: parent
@@ -823,9 +989,9 @@ Item {
                     Layout.fillWidth: true
                     height: 42
                     radius: 14
-                    color: modelData.isDefault ? Qt.rgba(utilModule.colAccent.r, utilModule.colAccent.g, utilModule.colAccent.b, 0.22) : (sourceMouse.containsMouse ? utilModule.colCardHover : utilModule.colCard)
+                    color: modelData.isDefault ? Qt.rgba(utilModule.colAccent.r, utilModule.colAccent.g, utilModule.colAccent.b, 0.20) : (sourceMouse.containsMouse ? utilModule.colCardHover : utilModule.colCard)
                     border.width: 1
-                    border.color: modelData.isDefault ? utilModule.colAccent : Qt.rgba(1, 1, 1, 0.08)
+                    border.color: modelData.isDefault ? utilModule.colAccent : Qt.rgba(255, 255, 255, 0.06)
 
                     RowLayout {
                         anchors.fill: parent

@@ -202,6 +202,31 @@ except Exception:
                 Layout.fillWidth: true
                 spacing: 10
 
+                // Tactile Back to Utility Button
+                Rectangle {
+                    width: 28; height: 28; radius: 8
+                    color: recBackMouse.containsMouse ? recModule.colCardHover : "transparent"
+                    border.width: 1
+                    border.color: Qt.rgba(1, 1, 1, 0.08)
+                    scale: recBackMouse.pressed ? 0.90 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 90 } }
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "󰁍"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 14
+                        color: recModule.colText
+                    }
+
+                    MouseArea {
+                        id: recBackMouse
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        hoverEnabled: true
+                        onClicked: root.switchMode("utility", true)
+                    }
+                }
+
                 // Squircle Icon Badge
                 Rectangle {
                     width: 38
