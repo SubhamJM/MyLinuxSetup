@@ -7,33 +7,26 @@ import "../"
 
 ColumnLayout {
     id: recModule
-    spacing: 10
+    spacing: 8
     Layout.fillWidth: true
-    Layout.fillHeight: true
 
-    // ========================================================
-    // 1. MATERIAL DESIGN 3 / MATERIAL YOU DESIGN TOKENS
-    // ========================================================
-    readonly property color colSurface: Theme.colors.bg ?? "#16161e"
-    readonly property color colCard: Theme.colors.card_bg ?? "#1f2335"
-    readonly property color colCardHover: Theme.colors.hover_bg ?? "#24283b"
-    readonly property color colAccent: Theme.colors.accent ?? "#7aa2f7"
-    readonly property color colAccentContainer: Qt.rgba(colAccent.r, colAccent.g, colAccent.b, 0.16)
-    readonly property color colTextPrimary: Theme.colors.text_primary ?? "#c0caf5"
-    readonly property color colTextSecondary: Theme.colors.text_secondary ?? "#9da9a0"
-    readonly property color colTextMuted: Theme.colors.text_muted ?? "#565f89"
-    readonly property color colBorder: Theme.colors.border ?? Qt.rgba(1, 1, 1, 0.08)
-    readonly property color colBorderHover: Theme.colors.border_hover ?? colAccent
-    readonly property color colRed: ({ nord: "#bf616a", dracula: "#ff5555", catppuccin: "#f38ba8", everforest: "#e67e80", "rose-pine": "#eb6f92" })[Theme.currentThemeName] ?? "#ff5555"
-    readonly property color colRedContainer: Qt.rgba(colRed.r, colRed.g, colRed.b, 0.20)
+    // Material UI Solid Polygon Tokens (Zero borders, pure tonal surfaces)
+    readonly property color colSurface: "#000000"
+    readonly property color colCard: Theme.colors.card_bg ?? "#181c24"
+    readonly property color colCardHover: Theme.colors.hover_bg ?? "#222834"
+    readonly property color colCardActive: Qt.alpha(recModule.colAccent, 0.16)
+    readonly property color colChipBg: Theme.colors.hover_bg ?? "#222834"
+    readonly property color colText: Theme.colors.text_primary ?? "#eceff4"
+    readonly property color colSubtext: Theme.colors.text_secondary ?? "#d8dee9"
+    readonly property color colMuted: Theme.colors.text_muted ?? "#81a1c1"
+    readonly property color colAccent: Theme.colors.accent ?? "#88c0d0"
+    readonly property color colGreen: ({ nord: "#a3be8c", dracula: "#50fa7b", catppuccin: "#a6e3a1", everforest: "#a7c080", "rose-pine": "#9ccfd8" })[Theme.currentThemeName] ?? "#30d158"
+    readonly property color colRed: ({ nord: "#bf616a", dracula: "#ff5555", catppuccin: "#f38ba8", everforest: "#e67e80", "rose-pine": "#eb6f92" })[Theme.currentThemeName] ?? "#ff453a"
 
-    // ========================================================
-    // 2. RECORDER STATE & PROCESSES
-    // ========================================================
     property string saveDirectory: "~/Videos"
     property bool recordAudio: false
     property string selectedSourceId: ""
-    property string selectedSourceName: "Default System Mic"
+    property string selectedSourceName: "Default Microphone"
     property bool isMicDropdownOpen: false
     property bool isRecording: false
     property int recordSeconds: 0
@@ -41,7 +34,7 @@ ColumnLayout {
 
     ListModel { id: micSourcesModel }
 
-    // Audio Input Scanner (pactl / pipewire)
+    // Query available audio input sources
     Process {
         id: micScanner
         running: root.activeMode === "recorder" || (root.activeMode === "utility" && typeof utilMod !== "undefined" && utilMod.activeSection === "recorder")
@@ -106,7 +99,7 @@ except Exception:
         }
     }
 
-    // Disk space checker
+    // Disk free space check
     Process {
         id: diskChecker
         running: root.activeMode === "recorder"
@@ -119,49 +112,41 @@ except Exception:
         }
     }
 
-    // Process checker: synchronizes with kernel elapsed time if wf-recorder is running
+    // Check background recording status
     Process {
         id: statusChecker
-        running: true
-        command: ["sh", "-c", "pgrep -x wf-recorder > /dev/null && echo 'running:'$(ps -o etimes= -C wf-recorder 2>/dev/null | head -n 1 | tr -d ' ') || echo 'stopped'"]
+        running: root.activeMode === "recorder" || root.activeMode === "idle" || root.activeMode === "hover"
+        command: ["sh", "-c", "pgrep -x wf-recorder > /dev/null && echo 'running' || echo 'stopped'"]
         stdout: StdioCollector {
             onStreamFinished: {
-                var out = this.text.trim();
-                if (out.startsWith("running")) {
-                    recModule.isRecording = true;
-                    root.isScreenRecording = true;
-                    var parts = out.split(":");
-                    if (parts.length >= 2 && parts[1]) {
-                        var parsedSec = parseInt(parts[1]);
-                        if (!isNaN(parsedSec) && parsedSec >= 0) {
-                            recModule.recordSeconds = parsedSec;
-                        }
-                    }
-                } else {
-                    recModule.isRecording = false;
-                    root.isScreenRecording = false;
-                }
+                var running = (this.text.trim() === "running");
+                recModule.isRecording = running;
+                root.isScreenRecording = running;
             }
         }
     }
 
     Timer {
-        interval: 1000
+        interval: 1800
         running: true
         repeat: true
         onTriggered: {
-            if (recModule.isRecording) {
-                recModule.recordSeconds++;
-            }
             if (!statusChecker.running) statusChecker.running = true;
             if (root.activeMode === "recorder" && !diskChecker.running) diskChecker.running = true;
         }
     }
 
+    Timer {
+        id: recordingTimer
+        interval: 1000
+        running: recModule.isRecording
+        repeat: true
+        onTriggered: recModule.recordSeconds++
+    }
+
     function formatTime(totalSec) {
-        var s = totalSec || 0;
-        var mins = Math.floor(s / 60);
-        var secs = s % 60;
+        var mins = Math.floor(totalSec / 60);
+        var secs = totalSec % 60;
         return (mins < 10 ? "0" : "") + mins + ":" + (secs < 10 ? "0" : "") + secs;
     }
 
@@ -198,42 +183,63 @@ except Exception:
     }
 
     // ========================================================
-    // 3. MATERIAL DESIGN 3 HERO CARD
+    // 1. HERO RECORDER CARD (Material UI Solid Surface, Zero Borders)
     // ========================================================
     Rectangle {
         Layout.fillWidth: true
-        implicitHeight: recModule.isRecording ? 104 : 80
-        radius: 16
-        color: recModule.isRecording ? recModule.colRedContainer : recModule.colCard
-        border.width: 1
-        border.color: recModule.isRecording ? Qt.rgba(recModule.colRed.r, recModule.colRed.g, recModule.colRed.b, 0.45) : recModule.colBorder
-        Behavior on implicitHeight { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-        Behavior on color { ColorAnimation { duration: 160 } }
-        Behavior on border.color { ColorAnimation { duration: 160 } }
+        height: 94
+        radius: 14
+        color: recModule.colCard
+        border.width: 0
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 12
+            anchors.margins: 11
             spacing: 8
 
             // Top Status Row
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 12
+                spacing: 10
 
-                // Avatar Container (Material 3 Squircle)
+                // Tactile Back to Utility Button
                 Rectangle {
-                    width: 44; height: 44
-                    radius: 14
-                    color: recModule.isRecording ? Qt.rgba(recModule.colRed.r, recModule.colRed.g, recModule.colRed.b, 0.28) : recModule.colAccentContainer
+                    width: 28; height: 28; radius: 8
+                    color: recBackMouse.containsMouse ? recModule.colCardHover : "transparent"
                     border.width: 1
-                    border.color: recModule.isRecording ? recModule.colRed : Qt.rgba(recModule.colAccent.r, recModule.colAccent.g, recModule.colAccent.b, 0.25)
-                    Behavior on color { ColorAnimation { duration: 160 } }
+                    border.color: Qt.rgba(1, 1, 1, 0.08)
+                    scale: recBackMouse.pressed ? 0.90 : 1.0
+                    Behavior on scale { NumberAnimation { duration: 90 } }
 
-                    MaterialSymbol {
+                    Text {
                         anchors.centerIn: parent
-                        text: recModule.isRecording ? "videocam" : "screen_record"
-                        iconSize: 24
+                        text: "󰁍"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 14
+                        color: recModule.colText
+                    }
+
+                    MouseArea {
+                        id: recBackMouse
+                        anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                        hoverEnabled: true
+                        onClicked: root.switchMode("utility", true)
+                    }
+                }
+
+                // Squircle Icon Badge
+                Rectangle {
+                    width: 38
+                    height: 38
+                    radius: 11
+                    color: recModule.isRecording ? Qt.alpha(recModule.colRed, 0.22) : recModule.colChipBg
+                    border.width: 0
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: recModule.isRecording ? "󰐥" : "󰕧"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 18
                         color: recModule.isRecording ? recModule.colRed : recModule.colAccent
                     }
                 }
@@ -246,49 +252,50 @@ except Exception:
                     Text {
                         Layout.fillWidth: true
                         text: recModule.isRecording ? "Recording in Progress" : "Screen Recorder"
-                        font.family: "Rubik"
-                        font.pixelSize: 14
-                        font.weight: Font.Bold
-                        color: recModule.colTextPrimary
+                        font.family: "Noto Sans"
+                        font.pixelSize: 13
+                        font.bold: true
+                        color: recModule.colText
                         elide: Text.ElideRight
                     }
 
                     Text {
                         Layout.fillWidth: true
                         text: recModule.isRecording 
-                            ? ("Elapsed: " + recModule.formatTime(recModule.recordSeconds) + " • 60 FPS • " + (recModule.recordAudio ? "Audio On" : "Muted"))
-                            : "WF-Recorder • 60 FPS • Hardware Accelerated"
+                            ? ("Elapsed: " + recModule.formatTime(recModule.recordSeconds) + " • 60 FPS")
+                            : "H.264 MP4 • Hardware Accelerated"
                         font.family: "Noto Sans"
                         font.pixelSize: 11
-                        color: recModule.colTextSecondary
+                        color: recModule.colSubtext
                         elide: Text.ElideRight
                     }
                 }
 
-                // Material 3 State Badge
+                // Solid Status Pill
                 Rectangle {
-                    radius: 12
-                    color: recModule.isRecording ? Qt.rgba(recModule.colRed.r, recModule.colRed.g, recModule.colRed.b, 0.24) : recModule.colAccentContainer
-                    border.width: 1
-                    border.color: recModule.isRecording ? recModule.colRed : Qt.rgba(recModule.colAccent.r, recModule.colAccent.g, recModule.colAccent.b, 0.3)
-                    implicitWidth: statusBadgeRow.implicitWidth + 16
-                    implicitHeight: 24
+                    radius: 10
+                    color: recModule.isRecording ? Qt.alpha(recModule.colRed, 0.22) : Qt.alpha(recModule.colAccent, 0.16)
+                    border.width: 0
+                    implicitWidth: statusRow.implicitWidth + 14
+                    implicitHeight: 22
 
                     Row {
-                        id: statusBadgeRow
+                        id: statusRow
                         anchors.centerIn: parent
-                        spacing: 6
+                        spacing: 5
 
                         Rectangle {
-                            width: 7; height: 7; radius: 3.5
+                            width: 6
+                            height: 6
+                            radius: 3
                             anchors.verticalCenter: parent.verticalCenter
                             color: recModule.isRecording ? recModule.colRed : recModule.colAccent
 
                             SequentialAnimation on opacity {
                                 running: recModule.isRecording
                                 loops: Animation.Infinite
-                                NumberAnimation { to: 0.25; duration: 600; easing.type: Easing.InOutSine }
-                                NumberAnimation { to: 1.0; duration: 600; easing.type: Easing.InOutSine }
+                                NumberAnimation { to: 0.25; duration: 600; easing.type: Easing.InOutQuad }
+                                NumberAnimation { to: 1.0; duration: 600; easing.type: Easing.InOutQuad }
                             }
                         }
 
@@ -296,7 +303,7 @@ except Exception:
                             text: recModule.isRecording ? "RECORDING" : "STANDBY"
                             font.family: "Rubik"
                             font.pixelSize: 10
-                            font.weight: Font.Bold
+                            font.bold: true
                             color: recModule.isRecording ? recModule.colRed : recModule.colAccent
                             anchors.verticalCenter: parent.verticalCenter
                         }
@@ -304,108 +311,98 @@ except Exception:
                 }
             }
 
-            // Bottom Material 3 Metadata Chips (visible in Standby)
+            // Bottom Tonal Metadata Chips Row
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 8
-                visible: !recModule.isRecording
+                spacing: 6
 
                 // Chip 1: Save Directory
                 Rectangle {
-                    height: 24
-                    radius: 8
-                    color: chipDirMouse.containsMouse ? recModule.colCardHover : Qt.rgba(1, 1, 1, 0.05)
-                    border.width: 1
-                    border.color: chipDirMouse.containsMouse ? recModule.colBorderHover : recModule.colBorder
-                    implicitWidth: chipDirRow.implicitWidth + 14
-                    Behavior on color { ColorAnimation { duration: 120 } }
+                    height: 22
+                    radius: 6
+                    color: recModule.colChipBg
+                    border.width: 0
+                    implicitWidth: chipDirRow.implicitWidth + 12
 
                     Row {
                         id: chipDirRow
                         anchors.centerIn: parent
-                        spacing: 5
-                        MaterialSymbol {
-                            text: "folder_open"
-                            iconSize: 13
-                            color: recModule.colAccent
+                        spacing: 4
+                        Text {
+                            text: "󰉋"
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 11
+                            color: recModule.colMuted
                             anchors.verticalCenter: parent.verticalCenter
                         }
                         Text {
                             text: recModule.saveDirectory
                             font.family: "Rubik"
-                            font.pixelSize: 11
+                            font.pixelSize: 10
                             font.weight: Font.Medium
-                            color: recModule.colTextSecondary
+                            color: recModule.colSubtext
                             anchors.verticalCenter: parent.verticalCenter
                         }
                     }
-
-                    MouseArea {
-                        id: chipDirMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: Quickshell.execDetached(["xdg-open", recModule.saveDirectory.replace(/^~/, Quickshell.env("HOME"))])
-                    }
                 }
 
-                // Chip 2: Audio Status
+                // Chip 2: Audio Mode
                 Rectangle {
-                    height: 24
-                    radius: 8
-                    color: recModule.recordAudio ? recModule.colAccentContainer : Qt.rgba(1, 1, 1, 0.05)
-                    border.width: 1
-                    border.color: recModule.recordAudio ? Qt.rgba(recModule.colAccent.r, recModule.colAccent.g, recModule.colAccent.b, 0.35) : recModule.colBorder
-                    implicitWidth: chipAudioRow.implicitWidth + 14
+                    height: 22
+                    radius: 6
+                    color: recModule.recordAudio ? Qt.alpha(recModule.colAccent, 0.2) : recModule.colChipBg
+                    border.width: 0
+                    implicitWidth: chipAudioRow.implicitWidth + 12
 
                     Row {
                         id: chipAudioRow
                         anchors.centerIn: parent
-                        spacing: 5
-                        MaterialSymbol {
-                            text: recModule.recordAudio ? "mic" : "mic_off"
-                            iconSize: 13
-                            color: recModule.recordAudio ? recModule.colAccent : recModule.colTextMuted
+                        spacing: 4
+                        Text {
+                            text: recModule.recordAudio ? "󰍬" : "󰝟"
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 11
+                            color: recModule.recordAudio ? recModule.colAccent : recModule.colMuted
                             anchors.verticalCenter: parent.verticalCenter
                         }
                         Text {
-                            text: recModule.recordAudio ? recModule.selectedSourceName : "Audio Off"
+                            text: recModule.recordAudio ? recModule.selectedSourceName : "No Audio"
                             font.family: "Rubik"
-                            font.pixelSize: 11
+                            font.pixelSize: 10
                             font.weight: Font.Medium
-                            color: recModule.recordAudio ? recModule.colAccent : recModule.colTextSecondary
+                            color: recModule.recordAudio ? recModule.colAccent : recModule.colSubtext
                             elide: Text.ElideRight
                             anchors.verticalCenter: parent.verticalCenter
                         }
                     }
                 }
 
-                // Chip 3: Disk Free Space
+                // Chip 3: Free Disk Space
                 Rectangle {
-                    height: 24
-                    radius: 8
-                    color: Qt.rgba(1, 1, 1, 0.05)
-                    border.width: 1
-                    border.color: recModule.colBorder
-                    implicitWidth: chipSpaceRow.implicitWidth + 14
+                    height: 22
+                    radius: 6
+                    color: recModule.colChipBg
+                    border.width: 0
+                    implicitWidth: chipSpaceRow.implicitWidth + 12
 
                     Row {
                         id: chipSpaceRow
                         anchors.centerIn: parent
-                        spacing: 5
-                        MaterialSymbol {
-                            text: "storage"
-                            iconSize: 13
-                            color: recModule.colTextMuted
+                        spacing: 4
+                        Text {
+                            text: "󰋊"
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 11
+                            color: recModule.colMuted
                             anchors.verticalCenter: parent.verticalCenter
                         }
                         Text {
                             text: recModule.freeDiskSpace
                             font.family: "Rubik"
-                            font.pixelSize: 11
-                            font.weight: Font.Bold
+                            font.pixelSize: 10
+                            font.bold: true
                             font.features: ({ "tnum": 1 })
-                            color: recModule.colTextSecondary
+                            color: recModule.colSubtext
                             anchors.verticalCenter: parent.verticalCenter
                         }
                     }
@@ -417,143 +414,15 @@ except Exception:
     }
 
     // ========================================================
-    // 4. ACTION CONTROLS: CAPTURE MODES (Material 3 Cards)
-    // ========================================================
-    RowLayout {
-        Layout.fillWidth: true
-        spacing: 10
-        visible: !recModule.isRecording
-
-        // 1. Full Screen Card
-        Rectangle {
-            Layout.fillWidth: true
-            height: 58
-            radius: 14
-            color: fullMouse.containsMouse ? recModule.colCardHover : recModule.colCard
-            border.width: 1
-            border.color: fullMouse.containsMouse ? recModule.colBorderHover : recModule.colBorder
-            scale: fullMouse.pressed ? 0.98 : 1.0
-            Behavior on color { ColorAnimation { duration: 120 } }
-            Behavior on scale { NumberAnimation { duration: 90 } }
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.margins: 10
-                spacing: 10
-
-                Rectangle {
-                    width: 36; height: 36
-                    radius: 10
-                    color: recModule.colAccentContainer
-                    border.width: 0
-
-                    MaterialSymbol {
-                        anchors.centerIn: parent
-                        text: "fullscreen"
-                        iconSize: 22
-                        color: recModule.colAccent
-                    }
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 1
-                    Text {
-                        text: "Full Screen"
-                        font.family: "Rubik"
-                        font.pixelSize: 12
-                        font.weight: Font.Bold
-                        color: recModule.colTextPrimary
-                    }
-                    Text {
-                        text: "Entire display"
-                        font.family: "Noto Sans"
-                        font.pixelSize: 10
-                        color: recModule.colTextSecondary
-                    }
-                }
-            }
-
-            MouseArea {
-                id: fullMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: recModule.startRecording(false)
-            }
-        }
-
-        // 2. Select Area Card
-        Rectangle {
-            Layout.fillWidth: true
-            height: 58
-            radius: 14
-            color: areaMouse.containsMouse ? recModule.colCardHover : recModule.colCard
-            border.width: 1
-            border.color: areaMouse.containsMouse ? recModule.colBorderHover : recModule.colBorder
-            scale: areaMouse.pressed ? 0.98 : 1.0
-            Behavior on color { ColorAnimation { duration: 120 } }
-            Behavior on scale { NumberAnimation { duration: 90 } }
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.margins: 10
-                spacing: 10
-
-                Rectangle {
-                    width: 36; height: 36
-                    radius: 10
-                    color: recModule.colAccentContainer
-                    border.width: 0
-
-                    MaterialSymbol {
-                        anchors.centerIn: parent
-                        text: "crop_free"
-                        iconSize: 20
-                        color: recModule.colAccent
-                    }
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 1
-                    Text {
-                        text: "Select Area"
-                        font.family: "Rubik"
-                        font.pixelSize: 12
-                        font.weight: Font.Bold
-                        color: recModule.colTextPrimary
-                    }
-                    Text {
-                        text: "Crop with Slurp"
-                        font.family: "Noto Sans"
-                        font.pixelSize: 10
-                        color: recModule.colTextSecondary
-                    }
-                }
-            }
-
-            MouseArea {
-                id: areaMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: recModule.startRecording(true)
-            }
-        }
-    }
-
-    // ========================================================
-    // 5. AUDIO & MICROPHONE SELECTION CARD (Material 3 Switch)
+    // 2. AUDIO & MICROPHONE SELECTION (Solid M3 Controls, Zero Borders)
     // ========================================================
     Rectangle {
         Layout.fillWidth: true
         visible: !recModule.isRecording
-        radius: 14
+        radius: 12
         color: recModule.colCard
-        border.width: 1
-        border.color: recModule.colBorder
-        implicitHeight: recModule.isMicDropdownOpen ? (50 + Math.min(3, micSourcesModel.count) * 34 + 8) : 50
+        border.width: 0
+        implicitHeight: recModule.isMicDropdownOpen ? (46 + Math.min(3, micSourcesModel.count) * 32 + 8) : 46
         clip: true
 
         Behavior on implicitHeight {
@@ -562,35 +431,37 @@ except Exception:
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 10
-            spacing: 8
+            anchors.margins: 8
+            spacing: 6
 
-            // Top Switch Row
+            // Top Audio Row
             RowLayout {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 30
-                spacing: 10
+                spacing: 8
 
+                // Mic Icon badge
                 Rectangle {
-                    width: 30; height: 30
-                    radius: 9
-                    color: recModule.recordAudio ? recModule.colAccentContainer : Qt.rgba(1, 1, 1, 0.06)
+                    width: 28
+                    height: 28
+                    radius: 8
+                    color: recModule.recordAudio ? Qt.alpha(recModule.colAccent, 0.18) : recModule.colChipBg
                     border.width: 0
-
-                    MaterialSymbol {
+                    Text {
                         anchors.centerIn: parent
-                        text: recModule.recordAudio ? "mic" : "mic_off"
-                        iconSize: 17
-                        color: recModule.recordAudio ? recModule.colAccent : recModule.colTextMuted
+                        text: recModule.recordAudio ? "󰍬" : "󰝟"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 14
+                        color: recModule.recordAudio ? recModule.colAccent : recModule.colMuted
                     }
                 }
 
                 Text {
                     text: "Microphone Audio"
-                    font.family: "Rubik"
+                    font.family: "Noto Sans"
                     font.pixelSize: 12
-                    font.weight: Font.Bold
-                    color: recModule.colTextPrimary
+                    font.bold: true
+                    color: recModule.colText
                     Layout.alignment: Qt.AlignVCenter
                 }
 
@@ -601,16 +472,15 @@ except Exception:
                     visible: recModule.recordAudio
                     height: 26
                     radius: 8
-                    color: micSelectMouse.containsMouse ? recModule.colCardHover : Qt.rgba(1, 1, 1, 0.06)
-                    border.width: 1
-                    border.color: micSelectMouse.containsMouse ? recModule.colBorderHover : recModule.colBorder
-                    implicitWidth: Math.min(170, micSelectRow.implicitWidth + 18)
+                    color: micSelectMouse.containsMouse ? recModule.colCardHover : recModule.colChipBg
+                    border.width: 0
+                    implicitWidth: Math.min(170, micSelectRow.implicitWidth + 16)
 
                     RowLayout {
                         id: micSelectRow
                         anchors.fill: parent
                         anchors.leftMargin: 8; anchors.rightMargin: 8
-                        spacing: 4
+                        spacing: 5
 
                         Text {
                             Layout.fillWidth: true
@@ -622,10 +492,11 @@ except Exception:
                             elide: Text.ElideRight
                         }
 
-                        MaterialSymbol {
-                            text: recModule.isMicDropdownOpen ? "expand_less" : "expand_more"
-                            iconSize: 16
-                            color: recModule.colTextSecondary
+                        Text {
+                            text: recModule.isMicDropdownOpen ? "󰅃" : "󰅀"
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 12
+                            color: recModule.colSubtext
                         }
                     }
 
@@ -638,24 +509,26 @@ except Exception:
                     }
                 }
 
-                // Material 3 Switch
+                // Material You Solid Switch
                 Item {
-                    implicitWidth: 42
-                    implicitHeight: 24
+                    implicitWidth: 40
+                    implicitHeight: 22
 
                     Rectangle {
                         anchors.fill: parent
-                        radius: 12
-                        color: recModule.recordAudio ? recModule.colAccent : Qt.rgba(1, 1, 1, 0.14)
+                        radius: height / 2
+                        color: recModule.recordAudio ? recModule.colAccent : recModule.colChipBg
+                        border.width: 0
                         Behavior on color { ColorAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
                         Rectangle {
-                            width: 18; height: 18
-                            radius: 9
+                            width: 16
+                            height: 16
+                            radius: 8
                             anchors.verticalCenter: parent.verticalCenter
                             x: recModule.recordAudio ? parent.width - width - 3 : 3
-                            color: recModule.recordAudio ? "#16161e" : recModule.colTextPrimary
-                            Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                            color: recModule.recordAudio ? recModule.colSurface : recModule.colSubtext
+                            Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
                         }
                     }
 
@@ -673,7 +546,7 @@ except Exception:
             // Expanded Mic Devices List
             ListView {
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(3, micSourcesModel.count) * 34
+                Layout.preferredHeight: Math.min(3, micSourcesModel.count) * 32
                 visible: recModule.recordAudio && recModule.isMicDropdownOpen
                 clip: true
                 spacing: 3
@@ -681,28 +554,28 @@ except Exception:
 
                 delegate: Rectangle {
                     width: ListView.view.width
-                    height: 31
-                    radius: 8
+                    height: 29
+                    radius: 7
                     property bool isSelected: (model.sourceId === recModule.selectedSourceId)
-                    color: isSelected ? recModule.colAccentContainer : (micItemMouse.containsMouse ? recModule.colCardHover : "transparent")
-                    border.width: isSelected ? 1 : 0
-                    border.color: isSelected ? recModule.colAccent : "transparent"
+                    color: isSelected ? Qt.alpha(recModule.colAccent, 0.16) : (micItemMouse.containsMouse ? recModule.colCardHover : "transparent")
+                    border.width: 0
 
                     RowLayout {
                         anchors.fill: parent
                         anchors.leftMargin: 8; anchors.rightMargin: 8
                         spacing: 8
 
-                        MaterialSymbol {
-                            text: isSelected ? "radio_button_checked" : "radio_button_unchecked"
-                            iconSize: 16
-                            color: isSelected ? recModule.colAccent : recModule.colTextMuted
+                        Text {
+                            text: isSelected ? "󰄲" : "󰄱"
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 13
+                            color: isSelected ? recModule.colAccent : recModule.colMuted
                         }
 
                         Text {
                             Layout.fillWidth: true
                             text: model.sourceName
-                            color: isSelected ? recModule.colAccent : recModule.colTextPrimary
+                            color: isSelected ? recModule.colAccent : recModule.colText
                             font.family: "Noto Sans"
                             font.pixelSize: 11
                             font.bold: isSelected
@@ -727,40 +600,157 @@ except Exception:
     }
 
     // ========================================================
-    // 6. UTILITY ROW: REGION SCREENSHOT & OPEN FOLDER (M3 Tonal)
+    // 3. ACTION CONTROLS (Solid Cards, Zero Borders)
     // ========================================================
+    // When NOT recording: Full Screen + Area Capture Cards
     RowLayout {
         Layout.fillWidth: true
-        spacing: 10
+        spacing: 8
         visible: !recModule.isRecording
 
-        // Screenshot Region Button
+        // Full Screen Record Button
         Rectangle {
             Layout.fillWidth: true
-            height: 34
-            radius: 10
-            color: snapMouse.containsMouse ? recModule.colCardHover : Qt.rgba(1, 1, 1, 0.05)
-            border.width: 1
-            border.color: snapMouse.containsMouse ? recModule.colBorderHover : recModule.colBorder
-            scale: snapMouse.pressed ? 0.98 : 1.0
-            Behavior on color { ColorAnimation { duration: 120 } }
-            Behavior on scale { NumberAnimation { duration: 90 } }
+            height: 44
+            radius: 12
+            color: fullMouse.containsMouse ? recModule.colCardHover : recModule.colCard
+            border.width: 0
+
+            Behavior on color { ColorAnimation { duration: 150; easing.type: Easing.OutCubic } }
+
+            RowLayout {
+                anchors.centerIn: parent
+                spacing: 8
+
+                Rectangle {
+                    width: 28
+                    height: 28
+                    radius: 8
+                    color: recModule.colChipBg
+                    border.width: 0
+                    Text {
+                        anchors.centerIn: parent
+                        text: "󰍹"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 14
+                        color: recModule.colAccent
+                    }
+                }
+
+                ColumnLayout {
+                    spacing: 1
+                    Text {
+                        text: "Full Screen"
+                        font.family: "Noto Sans"
+                        font.pixelSize: 12
+                        font.bold: true
+                        color: recModule.colText
+                    }
+                    Text {
+                        text: "Entire Display"
+                        font.family: "Noto Sans"
+                        font.pixelSize: 10
+                        color: recModule.colSubtext
+                    }
+                }
+            }
+
+            MouseArea {
+                id: fullMouse
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                hoverEnabled: true
+                onClicked: recModule.startRecording(false)
+            }
+        }
+
+        // Select Area Record Button
+        Rectangle {
+            Layout.fillWidth: true
+            height: 44
+            radius: 12
+            color: areaMouse.containsMouse ? recModule.colCardHover : recModule.colCard
+            border.width: 0
+
+            Behavior on color { ColorAnimation { duration: 150; easing.type: Easing.OutCubic } }
+
+            RowLayout {
+                anchors.centerIn: parent
+                spacing: 8
+
+                Rectangle {
+                    width: 28
+                    height: 28
+                    radius: 8
+                    color: recModule.colChipBg
+                    border.width: 0
+                    Text {
+                        anchors.centerIn: parent
+                        text: "󰒉"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 14
+                        color: recModule.colAccent
+                    }
+                }
+
+                ColumnLayout {
+                    spacing: 1
+                    Text {
+                        text: "Select Area"
+                        font.family: "Noto Sans"
+                        font.pixelSize: 12
+                        font.bold: true
+                        color: recModule.colText
+                    }
+                    Text {
+                        text: "Crop with Slurp"
+                        font.family: "Noto Sans"
+                        font.pixelSize: 10
+                        color: recModule.colSubtext
+                    }
+                }
+            }
+
+            MouseArea {
+                id: areaMouse
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                hoverEnabled: true
+                onClicked: recModule.startRecording(true)
+            }
+        }
+    }
+
+    // Utility Quick Action Chips (Screenshot & Open Videos Folder)
+    RowLayout {
+        Layout.fillWidth: true
+        spacing: 8
+        visible: !recModule.isRecording
+
+        // Quick Screenshot Button
+        Rectangle {
+            Layout.fillWidth: true
+            height: 28
+            radius: 8
+            color: snapMouse.containsMouse ? recModule.colCardHover : recModule.colChipBg
+            border.width: 0
 
             Row {
                 anchors.centerIn: parent
-                spacing: 6
-                MaterialSymbol {
-                    text: "photo_camera"
-                    iconSize: 15
+                spacing: 5
+                Text {
+                    text: "󰹑"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 12
                     color: recModule.colAccent
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 Text {
-                    text: "Region Screenshot"
-                    font.family: "Rubik"
+                    text: "Screenshot Region"
+                    font.family: "Noto Sans"
                     font.pixelSize: 11
-                    font.weight: Font.Bold
-                    color: recModule.colTextPrimary
+                    font.bold: true
+                    color: recModule.colText
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }
@@ -784,30 +774,27 @@ except Exception:
         // Open Videos Folder Button
         Rectangle {
             Layout.fillWidth: true
-            height: 34
-            radius: 10
-            color: folderMouse.containsMouse ? recModule.colCardHover : Qt.rgba(1, 1, 1, 0.05)
-            border.width: 1
-            border.color: folderMouse.containsMouse ? recModule.colBorderHover : recModule.colBorder
-            scale: folderMouse.pressed ? 0.98 : 1.0
-            Behavior on color { ColorAnimation { duration: 120 } }
-            Behavior on scale { NumberAnimation { duration: 90 } }
+            height: 28
+            radius: 8
+            color: folderMouse.containsMouse ? recModule.colCardHover : recModule.colChipBg
+            border.width: 0
 
             Row {
                 anchors.centerIn: parent
-                spacing: 6
-                MaterialSymbol {
-                    text: "folder_open"
-                    iconSize: 15
-                    color: recModule.colTextSecondary
+                spacing: 5
+                Text {
+                    text: "󰉋"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 12
+                    color: recModule.colSubtext
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 Text {
                     text: "Open Videos"
-                    font.family: "Rubik"
+                    font.family: "Noto Sans"
                     font.pixelSize: 11
-                    font.weight: Font.Bold
-                    color: recModule.colTextPrimary
+                    font.bold: true
+                    color: recModule.colText
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }
@@ -824,40 +811,36 @@ except Exception:
         }
     }
 
-    // ========================================================
-    // 7. RECORDING ACTIVE: PROMINENT MATERIAL 3 STOP BUTTON
-    // ========================================================
+    // When RECORDING: Prominent Solid Stop Recording Button
     Rectangle {
         Layout.fillWidth: true
-        height: 48
-        radius: 14
+        height: 46
+        radius: 12
         visible: recModule.isRecording
         color: stopMouse.containsMouse ? Qt.darker(recModule.colRed, 1.15) : recModule.colRed
         border.width: 0
-        scale: stopMouse.pressed ? 0.98 : 1.0
-        Behavior on scale { NumberAnimation { duration: 90 } }
-        Behavior on color { ColorAnimation { duration: 120 } }
 
         RowLayout {
             anchors.centerIn: parent
             spacing: 8
 
-            MaterialSymbol {
-                text: "stop_circle"
-                iconSize: 22
+            Text {
+                text: "󰐥"
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 16
                 color: "white"
             }
 
             Text {
                 text: "Stop Recording"
-                font.family: "Rubik"
+                font.family: "Noto Sans"
                 font.pixelSize: 13
-                font.weight: Font.Bold
+                font.bold: true
                 color: "white"
             }
 
             Rectangle {
-                width: timePillText.implicitWidth + 14
+                width: timePillText.implicitWidth + 12
                 height: 22
                 radius: 11
                 color: Qt.rgba(0, 0, 0, 0.28)
@@ -869,7 +852,7 @@ except Exception:
                     text: recModule.formatTime(recModule.recordSeconds)
                     font.family: "Rubik"
                     font.pixelSize: 11
-                    font.weight: Font.Bold
+                    font.bold: true
                     font.features: ({ "tnum": 1 })
                     color: "white"
                 }

@@ -48,11 +48,7 @@ Item {
     implicitWidth: {
         if (isIslandActive) return activeIslandWidth;
         if (root.activeMode === "hover") {
-            return Math.max(180, dashRow.implicitWidth + 60);
-        }
-        if (root.isScreenRecording && root.activeMode === "idle") {
-            if (dash.isMediaPlaying) return 330;
-            return 280;
+            return Math.max(160, dashRow.implicitWidth + 32);
         }
         if (dash.isMediaPlaying && root.activeMode === "idle") {
             if (dash.showMusicInfo) return 340;
@@ -665,56 +661,6 @@ Item {
                 separatorColor: Theme.colors.accent ?? "#a8c7fa"
                 isScreenRecording: root.isScreenRecording
             }
-
-            // iNiR Recording Mark in Idle Mode
-            Rectangle {
-                id: idleRecMark
-                visible: root.isScreenRecording
-                height: 20
-                radius: 10
-                anchors.verticalCenter: parent.verticalCenter
-                color: Qt.rgba(1, 0.25, 0.25, 0.16)
-                border.width: 1
-                border.color: Qt.rgba(1, 0.25, 0.25, 0.35)
-                implicitWidth: idleRecRow.implicitWidth + 14
-
-                Row {
-                    id: idleRecRow
-                    anchors.centerIn: parent
-                    spacing: 5
-
-                    Rectangle {
-                        width: 6; height: 6; radius: 3
-                        color: "#ff5555"
-                        anchors.verticalCenter: parent.verticalCenter
-                        SequentialAnimation on opacity {
-                            running: root.isScreenRecording
-                            loops: Animation.Infinite
-                            NumberAnimation { to: 0.25; duration: 600; easing.type: Easing.InOutSine }
-                            NumberAnimation { to: 1.0; duration: 600; easing.type: Easing.InOutSine }
-                        }
-                    }
-
-                    Text {
-                        text: "Recording"
-                        color: "#ff6b6b"
-                        font.family: "Rubik"
-                        font.pixelSize: 10
-                        font.weight: Font.Bold
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-
-                    Text {
-                        text: root.formatRecTime(root.screenRecordSeconds)
-                        color: Theme.colors.text_primary ?? "#ffffff"
-                        font.family: "Rubik"
-                        font.pixelSize: 10
-                        font.weight: Font.DemiBold
-                        font.features: ({ "tnum": 1 })
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-            }
         }
 
         MouseArea {
@@ -808,56 +754,6 @@ Item {
                     separatorColor: Theme.colors.accent ?? "#88c0d0"
                     isScreenRecording: root.isScreenRecording
                 }
-
-                // iNiR Recording Mark in Idle Mode (with music active)
-                Rectangle {
-                    id: musicIdleRecMark
-                    visible: root.isScreenRecording
-                    height: 20
-                    radius: 10
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: Qt.rgba(1, 0.25, 0.25, 0.16)
-                    border.width: 1
-                    border.color: Qt.rgba(1, 0.25, 0.25, 0.35)
-                    implicitWidth: musicIdleRecRow.implicitWidth + 14
-
-                    Row {
-                        id: musicIdleRecRow
-                        anchors.centerIn: parent
-                        spacing: 5
-
-                        Rectangle {
-                            width: 6; height: 6; radius: 3
-                            color: "#ff5555"
-                            anchors.verticalCenter: parent.verticalCenter
-                            SequentialAnimation on opacity {
-                                running: root.isScreenRecording
-                                loops: Animation.Infinite
-                                NumberAnimation { to: 0.25; duration: 600; easing.type: Easing.InOutSine }
-                                NumberAnimation { to: 1.0; duration: 600; easing.type: Easing.InOutSine }
-                            }
-                        }
-
-                        Text {
-                            text: "Recording"
-                            color: "#ff6b6b"
-                            font.family: "Rubik"
-                            font.pixelSize: 10
-                            font.weight: Font.Bold
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        Text {
-                            text: root.formatRecTime(root.screenRecordSeconds)
-                            color: Theme.colors.text_primary ?? "#ffffff"
-                            font.family: "Rubik"
-                            font.pixelSize: 10
-                            font.weight: Font.DemiBold
-                            font.features: ({ "tnum": 1 })
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
-                }
             }
 
             Item { Layout.fillWidth: true }
@@ -877,7 +773,7 @@ Item {
                 if (root.isScreenRecording) {
                     root.switchMode("recorder");
                 } else {
-                    root.switchMode("music", false);
+                    dash.showMusicInfo = !dash.showMusicInfo;
                 }
             }
         }
@@ -974,7 +870,7 @@ Item {
                 if (root.isScreenRecording) {
                     root.switchMode("recorder");
                 } else {
-                    root.switchMode("music", false);
+                    dash.showMusicInfo = false;
                 }
             }
         }
@@ -986,7 +882,7 @@ Item {
     Row {
         id: dashRow
         anchors.centerIn: parent
-        spacing: 12
+        spacing: 16
         opacity: (root.activeMode === "hover" && !dash.isIslandActive) ? 1.0 : 0.0
         scale: (root.activeMode === "hover" && !dash.isIslandActive) ? 1.0 : 0.95
         visible: opacity > 0.01
@@ -994,36 +890,61 @@ Item {
         Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.BezierSpline; easing.bezierCurve: dash.motionCurve } }
         Behavior on scale { NumberAnimation { duration: 260; easing.type: Easing.BezierSpline; easing.bezierCurve: dash.motionCurve } }
 
-        // 1. FRONT: Arch Logo Button (Triggers Control Center)
-        Rectangle {
-            width: 28; height: 26; radius: 8
+        // Workspaces (left of clock)
+        Row {
+            id: leftGroup
             anchors.verticalCenter: parent.verticalCenter
-            color: archMouse.containsMouse ? (Theme.colors.hover_bg ? Theme.colors.hover_bg : "#24283b") : "transparent"
-            border.width: archMouse.containsMouse ? 1 : 0
-            border.color: Theme.colors.border_hover ? Theme.colors.border_hover : "#7aa2f7"
-            scale: archMouse.pressed ? 0.92 : 1.0
-            Behavior on scale { NumberAnimation { duration: 90; easing.type: Easing.OutCubic } }
-            Behavior on color { ColorAnimation { duration: 150; easing.type: Easing.OutCubic } }
+            spacing: 6
+            visible: root.activeMode === "hover"
+            opacity: visible ? 1.0 : 0.0
+            Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
-            Text {
-                anchors.centerIn: parent
-                text: "󰣇"
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 16
-                color: archMouse.containsMouse ? (Theme.colors.accent ? Theme.colors.accent : "#7aa2f7") : (Theme.colors.text_primary ? Theme.colors.text_primary : "#c0caf5")
-                Behavior on color { ColorAnimation { duration: 120 } }
-            }
+            Repeater {
+                model: dash.workspaceIds
+                delegate: Rectangle {
+                    width: 26; height: 26; radius: 8
+                    property int wsId: modelData
+                    property bool isFocused: typeof Hyprland !== "undefined" && Hyprland.focusedWorkspace && (wsId === Hyprland.focusedWorkspace.id)
+                    color: isFocused ? (Theme.colors.accent ?? "#7aa2f7") : (wsMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent")
+                    border.width: wsMouse.containsMouse && !isFocused ? 1 : 0
+                    border.color: Theme.colors.border_hover ?? "#7aa2f7"
+                    scale: isFocused ? 1.06 : 1.0
+                    Behavior on color { ColorAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                    Behavior on scale { NumberAnimation { duration: 260; easing.type: Easing.BezierSpline; easing.bezierCurve: dash.motionCurve } }
 
-            MouseArea {
-                id: archMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.openUtility("", false)
+                    Text {
+                        anchors.centerIn: parent
+                        text: modelData
+                        color: parent.isFocused ? (Theme.colors.bg ?? "#16161e") : (Theme.colors.text_primary ?? "white")
+                        font.pixelSize: 12
+                        font.bold: true
+                    }
+                    MouseArea {
+                        id: wsMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (typeof Hyprland !== "undefined") Hyprland.dispatch(`hl.dsp.focus({workspace = ${modelData}})`);
+                        }
+                    }
+                }
             }
         }
 
-        // 2. Date & Time (Hover Clock)
+        // Divider — workspaces | clock
+        Rectangle {
+            width: 1
+            height: 18
+            radius: 0.5
+            color: Theme.colors.text_secondary ?? "#565f89"
+            opacity: leftGroup.visible ? 0.25 : 0.0
+            visible: leftGroup.visible
+            anchors.verticalCenter: parent.verticalCenter
+            Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+        }
+
+        // Date & Time (Hover Mode)
         Item {
             id: centerItem
             width: hoverCenterRow.implicitWidth
@@ -1045,7 +966,7 @@ Item {
                     Text {
                         id: hoverWeekdayText
                         text: Qt.formatDate(clock.date, "ddd").replace(/\.$/, "")
-                        color: Theme.colors.text_muted ? Theme.colors.text_muted : "#8e8e93"
+                        color: Theme.colors.text_muted ?? "#8e8e93"
                         font.family: "Noto Sans"
                         font.pixelSize: 11
                         font.weight: Font.Medium
@@ -1055,7 +976,7 @@ Item {
                     Text {
                         anchors.baseline: hoverWeekdayText.baseline
                         text: Qt.formatDate(clock.date, "d")
-                        color: Theme.colors.accent ? Theme.colors.accent : "#a8c7fa"
+                        color: Theme.colors.accent ?? "#a8c7fa"
                         font.family: "Rubik"
                         font.pixelSize: 12
                         font.weight: Font.Bold
@@ -1077,8 +998,8 @@ Item {
                         var mm = (m < 10 ? "0" : "") + m;
                         return hh + ":" + mm;
                     }
-                    color: Theme.colors.text_primary ? Theme.colors.text_primary : "#f5f5f7"
-                    separatorColor: Theme.colors.accent ? Theme.colors.accent : "#a8c7fa"
+                    color: Theme.colors.text_primary ?? "#f5f5f7"
+                    separatorColor: Theme.colors.accent ?? "#a8c7fa"
                     isScreenRecording: root.isScreenRecording
                 }
             }
@@ -1098,147 +1019,66 @@ Item {
             }
         }
 
-        // 2.2 iNiR Recording Mark in Bar (shows pulsating dot, "Recording", and elapsed seconds)
-        Rectangle {
-            id: barRecPill
-            visible: root.isScreenRecording
-            height: 26
-            radius: 8
-            anchors.verticalCenter: parent.verticalCenter
-            color: barRecMouse.containsMouse ? Qt.rgba(1, 0.25, 0.25, 0.26) : Qt.rgba(1, 0.25, 0.25, 0.16)
-            border.width: 1
-            border.color: barRecMouse.containsMouse ? "#ff5555" : Qt.rgba(1, 0.25, 0.25, 0.4)
-            Behavior on color { ColorAnimation { duration: 120 } }
-            implicitWidth: visible ? (barRecRow.implicitWidth + 18) : 0
-            Behavior on implicitWidth { NumberAnimation { duration: 250; easing.type: Easing.OutQuad } }
-
-            Row {
-                id: barRecRow
-                anchors.centerIn: parent
-                spacing: 6
-
-                Rectangle {
-                    width: 7; height: 7; radius: 3.5
-                    color: "#ff5555"
-                    anchors.verticalCenter: parent.verticalCenter
-
-                    SequentialAnimation on opacity {
-                        running: root.isScreenRecording
-                        loops: Animation.Infinite
-                        NumberAnimation { to: 0.25; duration: 600; easing.type: Easing.InOutSine }
-                        NumberAnimation { to: 1.0; duration: 600; easing.type: Easing.InOutSine }
-                    }
-                }
-
-                Text {
-                    text: "Recording"
-                    color: "#ff6b6b"
-                    font.family: "Rubik"
-                    font.pixelSize: 11
-                    font.weight: Font.Bold
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-
-                Text {
-                    text: root.formatRecTime(root.screenRecordSeconds)
-                    color: Theme.colors.text_primary ? Theme.colors.text_primary : "#ffffff"
-                    font.family: "Rubik"
-                    font.pixelSize: 11
-                    font.weight: Font.DemiBold
-                    font.features: ({ "tnum": 1 })
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-            }
-
-            MouseArea {
-                id: barRecMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.switchMode("recorder", false)
-            }
-        }
-
-        // 3. Divider — clock | workspaces
+        // Divider — clock | tray
         Rectangle {
             width: 1
             height: 18
             radius: 0.5
-            color: Theme.colors.text_secondary ? Theme.colors.text_secondary : "#565f89"
-            opacity: 0.25
+            color: Theme.colors.text_secondary ?? "#565f89"
+            opacity: leftGroup.visible ? 0.25 : 0.0
+            visible: leftGroup.visible
             anchors.verticalCenter: parent.verticalCenter
             Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
         }
 
-        // 4. MIDDLE: Workspaces
+        // System Tray Container (Unified Control Center + Battery)
         Row {
-            id: wsGroup
+            id: rightGroup
             anchors.verticalCenter: parent.verticalCenter
             spacing: 6
+            visible: root.activeMode === "hover"
+            opacity: visible ? 1.0 : 0.0
+            Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
-            Repeater {
-                model: dash.workspaceIds
-                delegate: Rectangle {
-                    width: 26; height: 26; radius: 8
-                    property int wsId: modelData
-                    property bool isFocused: typeof Hyprland !== "undefined" && Hyprland.focusedWorkspace && (wsId === Hyprland.focusedWorkspace.id)
-                    color: isFocused ? (Theme.colors.accent ? Theme.colors.accent : "#7aa2f7") : (wsMouse.containsMouse ? (Theme.colors.hover_bg ? Theme.colors.hover_bg : "#24283b") : "transparent")
-                    border.width: wsMouse.containsMouse && !isFocused ? 1 : 0
-                    border.color: Theme.colors.border_hover ? Theme.colors.border_hover : "#7aa2f7"
-                    scale: isFocused ? 1.06 : 1.0
-                    Behavior on color { ColorAnimation { duration: 180; easing.type: Easing.OutCubic } }
-                    Behavior on scale { NumberAnimation { duration: 260; easing.type: Easing.BezierSpline; easing.bezierCurve: dash.motionCurve } }
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: modelData
-                        color: parent.isFocused ? (Theme.colors.bg ? Theme.colors.bg : "#16161e") : (Theme.colors.text_primary ? Theme.colors.text_primary : "white")
-                        font.pixelSize: 12
-                        font.bold: true
-                    }
-                    MouseArea {
-                        id: wsMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            if (typeof Hyprland !== "undefined") Hyprland.dispatch(`hl.dsp.focus({workspace = ${modelData}})`);
-                        }
-                    }
+            // Control Center Trigger
+            Rectangle {
+                width: 28; height: 26; radius: 8
+                color: utilMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
+                border.width: utilMouse.containsMouse ? 1 : 0
+                border.color: Theme.colors.border_hover ?? "#7aa2f7"
+                Behavior on color { ColorAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                Text {
+                    anchors.centerIn: parent
+                    text: "󱊖"
+                    font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 15
+                    color: Theme.colors.text_primary ?? "#c0caf5"
+                }
+                MouseArea {
+                    id: utilMouse
+                    anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                    onClicked: root.openUtility("", false)
                 }
             }
-        }
 
-        // 5. Divider — workspaces | battery
-        Rectangle {
-            width: 1
-            height: 18
-            radius: 0.5
-            color: Theme.colors.text_secondary ? Theme.colors.text_secondary : "#565f89"
-            opacity: 0.25
-            anchors.verticalCenter: parent.verticalCenter
-            Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-        }
+            // Battery
+            Rectangle {
+                width: battRow.implicitWidth + 16; height: 26; radius: 8
+                color: battMouse.containsMouse ? (Theme.colors.hover_bg ?? "#24283b") : "transparent"
+                border.width: battMouse.containsMouse ? 1 : 0
+                border.color: Theme.colors.border_hover ?? "#7aa2f7"
+                Behavior on color { ColorAnimation { duration: 150; easing.type: Easing.OutCubic } }
 
-        // 6. END: Battery Pill
-        Rectangle {
-            width: battRow.implicitWidth + 16; height: 26; radius: 8
-            anchors.verticalCenter: parent.verticalCenter
-            color: battMouse.containsMouse ? (Theme.colors.hover_bg ? Theme.colors.hover_bg : "#24283b") : "transparent"
-            border.width: battMouse.containsMouse ? 1 : 0
-            border.color: Theme.colors.border_hover ? Theme.colors.border_hover : "#7aa2f7"
-            Behavior on color { ColorAnimation { duration: 150; easing.type: Easing.OutCubic } }
-
-            BatteryPill {
-                id: battRow
-                anchors.centerIn: parent
-            }
-            MouseArea {
-                id: battMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.switchMode("battery", false)
+                BatteryPill {
+                    id: battRow
+                    anchors.centerIn: parent
+                }
+                MouseArea {
+                    id: battMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.switchMode("battery", false)
+                }
             }
         }
     }

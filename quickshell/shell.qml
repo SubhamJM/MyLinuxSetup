@@ -64,45 +64,7 @@ ShellRoot {
 
     property bool dndEnabled: false
 
-    // Fullscreen auto-hide detection
-    property bool isFullscreenActive: false
 
-    Process {
-        id: checkFullscreenProcess
-        running: false
-        command: ["sh", "-c", '(hyprctl activeworkspace -j 2>/dev/null | grep -q \'"hasfullscreen": true\') || (niri msg -j focused-window 2>/dev/null | grep -q \'"is_fullscreen": true\') && echo "1" || echo "0"']
-        stdout: StdioCollector {
-            onStreamFinished: {
-                var val = this.text.trim() === "1";
-                if (root.isFullscreenActive !== val) {
-                    root.isFullscreenActive = val;
-                }
-            }
-        }
-    }
-
-    Timer {
-        id: fullscreenPollTimer
-        interval: 600
-        running: true
-        repeat: true
-        onTriggered: {
-            if (!checkFullscreenProcess.running) checkFullscreenProcess.running = true;
-        }
-    }
-
-    Connections {
-        target: typeof Hyprland !== "undefined" ? Hyprland : null
-        function onRawEvent(event) {
-            if (event && (event.name === "fullscreen" || event.name === "activewindow" || event.name === "workspace" || event.name === "changefloatingmode")) {
-                if (!checkFullscreenProcess.running) checkFullscreenProcess.running = true;
-            }
-        }
-    }
-
-    Component.onCompleted: {
-        checkFullscreenProcess.running = true;
-    }
 
     // Native D-Bus Notification Server
     NotificationServer {
@@ -145,7 +107,7 @@ ShellRoot {
     }
 
     readonly property bool isDashMode: activeMode === "idle" || activeMode === "hover"
-    readonly property bool isPopupMode: activeMode === "wifi" || activeMode === "bluetooth" || activeMode === "utility" || activeMode === "battery" || activeMode === "recorder" || activeMode === "calendar" || activeMode === "notifications" || activeMode === "shelf" || activeMode === "notes" || activeMode === "cheatsheet" || activeMode === "clipboard" || activeMode === "hover" || activeMode === "music"
+    readonly property bool isPopupMode: activeMode === "launcher" || activeMode === "wifi" || activeMode === "bluetooth" || activeMode === "utility" || activeMode === "battery" || activeMode === "recorder" || activeMode === "calendar" || activeMode === "notifications" || activeMode === "shelf" || activeMode === "notes" || activeMode === "cheatsheet" || activeMode === "clipboard" || activeMode === "hover" || activeMode === "music"
 
     function collapseToIdle() {
         root.isWorkspacePeeking = false;
@@ -177,7 +139,8 @@ ShellRoot {
     }
 
 	function regainFocus() {
-		if (activeMode === "switcher" && typeof switcherMod !== "undefined") switcherMod.forceActiveFocus();
+        if (activeMode === "launcher" && typeof launcherMod !== "undefined") launcherMod.searchInput.forceActiveFocus();
+		else if (activeMode === "switcher" && typeof switcherMod !== "undefined") switcherMod.forceActiveFocus();
         else if (activeMode === "theme" && typeof themeMod !== "undefined") themeMod.forceThemeFocus();
         else if (activeMode === "wallpaper") wallMod.wallpaperGrid.forceActiveFocus();
         else if (activeMode === "transition") transMod.transitionGrid.forceActiveFocus();
@@ -205,8 +168,13 @@ ShellRoot {
             Bluetooth.defaultAdapter.discovering = false;
         }
 
+        if (activeMode === "launcher") {
+            if (typeof launcherMod !== "undefined") launcherMod.onOpened();
+        }
+
         Qt.callLater(() => {
             root.regainFocus();
+            if (activeMode !== "launcher" && typeof launcherMod !== "undefined") launcherMod.searchInput.text = "";
             if (activeMode !== "theme" && typeof themeMod !== "undefined") themeMod.resetSearch();
             if (activeMode !== "clipboard" && typeof clipMod !== "undefined") clipMod.searchInput.text = "";
             if (activeMode !== "shelf" && typeof shelfMod !== "undefined") shelfMod.searchInput.text = "";
@@ -233,6 +201,11 @@ ShellRoot {
         }
         if (activeMode === "cheatsheet" && typeof cheatsheetMod !== "undefined" && cheatsheetMod.isAddingMode) {
             return 500;
+        }
+        if (activeMode === "launcher") {
+            return typeof launcherMod !== "undefined"
+                ? NotchConfig.calculateLauncherHeight(launcherMod.calculatedCount, launcherMod.allApps.length)
+                : 360;
         }
         if (activeMode === "transition" || activeMode === "calendar" || activeMode === "powermenu" || activeMode === "battery" || activeMode === "notes" || activeMode === "cheatsheet") {
             var mDim = NotchConfig.modeDimensions[activeMode];
@@ -446,8 +419,10 @@ while True:
     GlobalShortcut {
         name: "toggleNotchLauncher"
         onPressed: {
-            if (typeof spotlightWin !== "undefined" && spotlightWin) {
-                spotlightWin.toggle()
+            if (root.activeMode === "launcher") {
+                root.collapseToIdle();
+            } else {
+                root.switchMode("launcher", true);
             }
         }
     }
@@ -578,39 +553,67 @@ while True:
         }
     }
 
+    // Permanent top reservation for Hyprland window tiling (32px)
+    PanelWindow {
+        id: reservationPanel
+        anchors.top: true
+        exclusiveZone: NotchConfig.baseExclusiveZone
+        color: "transparent"
+        Item { id: emptyResItem; width: 0; height: 0 }
+        mask: Region { item: emptyResItem }
+    }
+
     // Main Notch Panel
     PanelWindow {
         id: panel
-        anchors.top: true
-        implicitWidth: 880
-        implicitHeight: 560
-        exclusiveZone: NotchConfig.baseExclusiveZone
+        anchors {
+            top: true
+            bottom: true
+            left: true
+            right: true
+        }
+        exclusiveZone: -1
         color: "transparent"
-        WlrLayershell.layer: (root.activeMode !== "idle" && root.activeMode !== "hover") ? WlrLayer.Overlay : WlrLayer.Top
+        WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.namespace: "quickshell"
 
-        Item { id: emptyMaskItem; width: 0; height: 0 }
+        Item {
+            id: fullMaskArea
+            anchors.fill: parent
+        }
 
         mask: Region {
-            item: (root.isFullscreenActive && root.activeMode === "idle") ? emptyMaskItem : notchContainer
+            item: (root.activeMode !== "idle" && root.activeMode !== "hover" && root.activeMode !== "osd") 
+                ? fullMaskArea 
+                : notchContainer
         }
 
         WlrLayershell.keyboardFocus: (root.activeMode !== "idle" && root.activeMode !== "hover" && root.activeMode !== "osd") 
             ? WlrKeyboardFocus.OnDemand 
             : WlrKeyboardFocus.None
 
+        // Fullscreen click-away backdrop: collapses any open popup/menu when clicking anywhere outside
+        MouseArea {
+            id: outsideClickCatcher
+            anchors.fill: parent
+            z: 0
+            enabled: root.activeMode !== "idle" && root.activeMode !== "hover" && root.activeMode !== "osd"
+            onClicked: {
+                root.collapseToIdle();
+            }
+        }
+
         Item {
             id: notchContainer
+            z: 1
             anchors.top: parent.top
             anchors.horizontalCenter: parent.horizontalCenter
             width: notch.width + (root.cornerCurveRadius * 2)
             height: notch.height
 
-            y: (root.isFullscreenActive && root.activeMode === "idle") ? -notch.height - 12 : 0
-            opacity: (root.isFullscreenActive && root.activeMode === "idle") ? 0.0 : 1.0
-            visible: opacity > 0.001
-            Behavior on y { NumberAnimation { duration: 250; easing.type: Easing.BezierSpline; easing.bezierCurve: [0.16, 1, 0.3, 1, 1, 1] } }
-            Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+            y: 0
+            opacity: 1.0
+            visible: true
 
             focus: root.activeMode !== "idle" && root.activeMode !== "hover"
             Keys.onPressed: (event) => {
@@ -688,23 +691,6 @@ while True:
                 }
             }
 
-            MouseArea {
-                id: extendedHoverArea
-                anchors.fill: notch
-                anchors.margins: -20
-                hoverEnabled: true
-                acceptedButtons: Qt.NoButton
-                enabled: root.isPopupMode
-                onContainsMouseChanged: {
-                    if (containsMouse) {
-                        root.openedViaShortcut = false;
-                        autoCollapseTimer.stop();
-                    } else if (!notchHoverHandler.hovered && !root.openedViaShortcut) {
-                        autoCollapseTimer.restart();
-                    }
-                }
-            }
-
             // Notch Surface
             Rectangle {
                 id: notch
@@ -714,6 +700,12 @@ while True:
                 height: root.targetHeight
                 color: "#000000"
                 clip: true
+
+                // Consumes clicks on empty space inside notch so they do not fall through to click-away catcher
+                MouseArea {
+                    anchors.fill: parent
+                    z: -1
+                }
                 
                 radius: 0
                 bottomLeftRadius: root.targetRadius
@@ -763,27 +755,29 @@ while True:
                         currentIndex: {
                             var mode = root.isDashMode ? root.previousExpandedMode : root.activeMode;
                             switch(mode) {
-                                case "theme":         return 0;
-                                case "wallpaper":     return 1;
-                                case "transition":    return 2;
-                                case "bluetooth":     return 3;
-                                case "wifi":          return 4;
-                                case "recorder":      return 5;
-                                case "battery":       return 6;
-                                case "powermenu":     return 7;
-                                case "calendar":      return 8;
-                                case "clipboard":     return 9;
-                                case "shelf":         return 10;
-								case "notifications": return 11;
-								case "switcher":      return 12;
-                                case "utility":       return 13;
-                                case "music":         return 14;
-                                case "notes":         return 15;
-                                case "cheatsheet":    return 16;
+                                case "launcher":      return 0;
+                                case "theme":         return 1;
+                                case "wallpaper":     return 2;
+                                case "transition":    return 3;
+                                case "bluetooth":     return 4;
+                                case "wifi":          return 5;
+                                case "recorder":      return 6;
+                                case "battery":       return 7;
+                                case "powermenu":     return 8;
+                                case "calendar":      return 9;
+                                case "clipboard":     return 10;
+                                case "shelf":         return 11;
+								case "notifications": return 12;
+								case "switcher":      return 13;
+                                case "utility":       return 14;
+                                case "music":         return 15;
+                                case "notes":         return 16;
+                                case "cheatsheet":    return 17;
                                 default:              return 0;
                             }
                         }
 
+                        Launcher           { id: launcherMod }
                         ThemeSelector      { id: themeMod }
                         WallpaperSelector  { id: wallMod }
                         TransitionSelector { id: transMod }
@@ -824,46 +818,24 @@ while True:
                     }
                 }
 
-                Timer {
-                    id: autoCollapseTimer
-                    interval: NotchConfig.timerAutoCollapse
-                    repeat: false
-                    onTriggered: {
-                        if (root.openedViaShortcut) return;
-                        if (typeof shelfMod !== "undefined" && shelfMod.isDragging) return;
-                        if (typeof utilMod !== "undefined" && (utilMod.isDraggingVolume || utilMod.isDraggingBrightness)) return;
-                        if (!notchHoverHandler.hovered && (!extendedHoverArea.enabled || !extendedHoverArea.containsMouse) && root.activeMode !== "idle" && root.activeMode !== "osd" && !root.isWorkspacePeeking) {
-                            root.collapseToIdle();
-                        }
-                    }
-                }
-
                 HoverHandler {
                     id: notchHoverHandler
                     enabled: root.activeMode !== "osd"
                     onHoveredChanged: {
-                        console.log("NOTCH HOVERED:", hovered, "activeMode:", root.activeMode, "openedViaShortcut:", root.openedViaShortcut);
                         if (typeof shelfMod !== "undefined" && shelfMod.isDragging) return;
                         if (typeof utilMod !== "undefined" && (utilMod.isDraggingVolume || utilMod.isDraggingBrightness)) return;
                         if (hovered) {
-                            autoCollapseTimer.stop();
                             root.openedViaShortcut = false;
                             root.isWorkspacePeeking = false;
                             if (root.activeMode === "idle") root.activeMode = "hover";
                         } else {
-                            if (!root.openedViaShortcut && root.isPopupMode && (!extendedHoverArea.enabled || !extendedHoverArea.containsMouse)) {
-                                autoCollapseTimer.restart();
+                            if (root.activeMode === "hover") {
+                                root.collapseToIdle();
                             }
                         }
                     }
                 }
             }
         }
-    }
-
-    // ── Iris Spotlight Search ─────────────────────────────────────────────────
-    // Standalone floating search window - triggered by Super+Space
-    IrisSpotlight {
-        id: spotlightWin
     }
 }

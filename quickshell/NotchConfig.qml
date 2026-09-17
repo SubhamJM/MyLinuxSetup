@@ -43,28 +43,28 @@ QtObject {
         "idle":          { width: 156, height: 32,  radius: 16 },
 		"hover":         { width: 460, height: 42,  radius: 21 },
 		"switcher":      { width: 800, height: 420, radius: 14 },
-        "launcher":      { width: 460, height: 360, radius: 12 },
+        "launcher":      { width: 460, height: 360, radius: 20 },
         "theme":         { width: 660, height: 200, radius: 14 },
         "wallpaper":     { width: 760, height: 320, radius: 12 },
         "transition":    { width: 440, height: 320, radius: 12 },
         "osd":           { width: 280, height: 40,  radius: 16 },
         "wifi":          { width: 420, height: 380, radius: 26 }, 
         "bluetooth":     { width: 420, height: 380, radius: 26 },
-        "recorder":      { width: 440, height: 280, radius: 26 },
-        "battery":       { width: 540, height: 435, radius: 18 },
-        "powermenu":     { width: 440, height: 100, radius: 14 },
+        "recorder":      { width: 420, height: 275, radius: 26 },
+        "battery":       { width: 460, height: 285, radius: 26 },
+        "powermenu":     { width: 560, height: 108, radius: 24 },
         "calendar":      { width: 320, height: 280, radius: 12 },
         "clipboard":     { width: 460, height: 380, radius: 12 },
         "shelf":         { width: 460, height: 380, radius: 12 },
-        "utility":       { width: 460, height: 358, radius: 26 },
+        "utility":       { width: 460, height: 318, radius: 26 },
         "music":         { width: 600, height: 335, radius: 26 },
         "notes":         { width: 680, height: 480, radius: 14 },
         "cheatsheet":    { width: 800, height: 440, radius: 14 }
     })
 
     function calculateUtilityHeight(activeSection) {
-        if (activeSection === "audio") return 400;
-        return 358;
+        if (activeSection === "audio") return 360;
+        return 318;
     }
 
     // ==========================================
@@ -95,9 +95,10 @@ QtObject {
     }
 
     function calculateRecorderHeight(recordAudio, isDropdownOpen, isRecording) {
-        if (isRecording) return 195;
-        if (recordAudio && isDropdownOpen) return 380;
-        return 280;
+        if (isRecording) return 210;
+        if (recordAudio && isDropdownOpen) return 360;
+        if (recordAudio) return 310;
+        return 270;
     }
 
     function calculateBluetoothHeight(devices, stateMap) {
@@ -114,11 +115,13 @@ QtObject {
     }
 
     function calculateWifiHeight(activeTab, wifiEnabled, modelCount, listContentHeight) {
-        if (activeTab === "hotspot") return 390;
+        if (activeTab === "hotspot") return 415;
         if (!wifiEnabled) return 260;
-        if (modelCount === 0) return 270;
-        var base = 205;
-        var dynamicListHeight = Math.min(220, Math.max(65, listContentHeight));
-        return Math.min(430, Math.max(270, base + dynamicListHeight));
+        if (modelCount === 0) return 280;
+        var base = 195;
+        var estimated = modelCount * 68;
+        var effectiveList = Math.max(listContentHeight || 0, estimated);
+        var dynamicListHeight = Math.min(320, Math.max(70, effectiveList));
+        return Math.min(500, Math.max(260, base + dynamicListHeight));
     }
 }
