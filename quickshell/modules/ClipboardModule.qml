@@ -240,20 +240,26 @@ for line in lines:
         spacing: 6
         model: clipModel
         currentIndex: 0
+        boundsBehavior: Flickable.StopAtBounds
 
-        highlightFollowsCurrentItem: true
-        highlightRangeMode: ListView.ApplyRange
-        preferredHighlightBegin: 40
-        preferredHighlightEnd: height - 54
-        highlightMoveDuration: 120
-
-        onCurrentIndexChanged: {
-            if (currentIndex >= 0 && currentIndex < count) {
-                positionViewAtIndex(currentIndex, ListView.Contain);
+        ScrollBar.vertical: ScrollBar {
+            id: clipScroll
+            active: clipList.moving || clipList.flicking
+            policy: ScrollBar.AsNeeded
+            width: 4
+            contentItem: Rectangle {
+                radius: 2
+                color: Qt.rgba(255, 255, 255, 0.25)
             }
         }
 
-        boundsBehavior: Flickable.DragAndOvershootBounds
+        WheelHandler {
+            target: clipList
+            onWheel: (event) => {
+                var step = event.angleDelta.y > 0 ? -60 : 60;
+                clipList.contentY = Math.max(0, Math.min(Math.max(0, clipList.contentHeight - clipList.height), clipList.contentY + step));
+            }
+        }
 
         Item {
             anchors.fill: parent
@@ -268,15 +274,16 @@ for line in lines:
 
         delegate: Rectangle {
             id: clipCard
-            width: ListView.view.width
+            width: ListView.view.width - (clipScroll.visible ? 8 : 0)
             height: isImage ? 80 : 44
-            property bool isSelected: ListView.isCurrentItem
+            property bool isSelected: ListView.isCurrentItem || clipMouse.containsMouse
             radius: 8
-            color: isSelected ? (Theme.colors.hover_bg ?? "#24283b") : (clipMouse.containsMouse ? (Theme.colors.card_bg ?? "#1f2335") : "transparent")
+            color: clipMouse.containsMouse ? (Theme.colors.hover_bg ?? "#202534") : (ListView.isCurrentItem ? Qt.rgba(255, 255, 255, 0.08) : "transparent")
             border.width: 1
-            border.color: isSelected ? (Theme.colors.accent ?? "#7aa2f7") : (Theme.colors.border ?? "#16161e")
+            border.color: isSelected ? (Theme.colors.accent ?? "#7aa2f7") : Qt.rgba(255, 255, 255, 0.06)
 
-            Behavior on color { ColorAnimation { duration: 150 } }
+            Behavior on color { ColorAnimation { duration: 120 } }
+            Behavior on border.color { ColorAnimation { duration: 120 } }
 
             RowLayout {
                 anchors.fill: parent
@@ -357,8 +364,14 @@ for line in lines:
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onEntered: clipList.currentIndex = index
-                onClicked: clipModule.copyItemToTop(clipId)
+                onClicked: {
+                    clipList.currentIndex = index;
+                    clipModule.copyItemToTop(clipId);
+                }
+                onWheel: (wheel) => {
+                    var step = wheel.angleDelta.y > 0 ? -60 : 60;
+                    clipList.contentY = Math.max(0, Math.min(Math.max(0, clipList.contentHeight - clipList.height), clipList.contentY + step));
+                }
             }
         }
     }

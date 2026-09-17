@@ -14,9 +14,17 @@ ShellRoot {
     id: root
 
     property string activeMode: "idle"
-    property string previousExpandedMode: "launcher"
+    property string previousExpandedMode: "theme"
     property bool isWorkspacePeeking: false
     property bool isScreenRecording: false
+    property int screenRecordSeconds: typeof recMod !== "undefined" ? recMod.recordSeconds : 0
+
+    function formatRecTime(sec) {
+        var s = sec || 0;
+        var m = Math.floor(s / 60);
+        var remSec = s % 60;
+        return (m < 10 ? "0" : "") + m + ":" + (remSec < 10 ? "0" : "") + remSec;
+    }
     property bool openedViaShortcut: false
 
     // Persistent notifications store
@@ -55,6 +63,46 @@ ShellRoot {
     }
 
     property bool dndEnabled: false
+
+    // Fullscreen auto-hide detection
+    property bool isFullscreenActive: false
+
+    Process {
+        id: checkFullscreenProcess
+        running: false
+        command: ["sh", "-c", '(hyprctl activeworkspace -j 2>/dev/null | grep -q \'"hasfullscreen": true\') || (niri msg -j focused-window 2>/dev/null | grep -q \'"is_fullscreen": true\') && echo "1" || echo "0"']
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var val = this.text.trim() === "1";
+                if (root.isFullscreenActive !== val) {
+                    root.isFullscreenActive = val;
+                }
+            }
+        }
+    }
+
+    Timer {
+        id: fullscreenPollTimer
+        interval: 600
+        running: true
+        repeat: true
+        onTriggered: {
+            if (!checkFullscreenProcess.running) checkFullscreenProcess.running = true;
+        }
+    }
+
+    Connections {
+        target: typeof Hyprland !== "undefined" ? Hyprland : null
+        function onRawEvent(event) {
+            if (event && (event.name === "fullscreen" || event.name === "activewindow" || event.name === "workspace" || event.name === "changefloatingmode")) {
+                if (!checkFullscreenProcess.running) checkFullscreenProcess.running = true;
+            }
+        }
+    }
+
+    Component.onCompleted: {
+        checkFullscreenProcess.running = true;
+    }
 
     // Native D-Bus Notification Server
     NotificationServer {
@@ -130,7 +178,6 @@ ShellRoot {
 
 	function regainFocus() {
 		if (activeMode === "switcher" && typeof switcherMod !== "undefined") switcherMod.forceActiveFocus();
-		else if (activeMode === "launcher") launcherMod.searchInput.forceActiveFocus();
         else if (activeMode === "theme" && typeof themeMod !== "undefined") themeMod.forceThemeFocus();
         else if (activeMode === "wallpaper") wallMod.wallpaperGrid.forceActiveFocus();
         else if (activeMode === "transition") transMod.transitionGrid.forceActiveFocus();
@@ -139,6 +186,7 @@ ShellRoot {
         else if (activeMode === "powermenu" && typeof powerMod !== "undefined") powerMod.forceActiveFocus();
         else if (activeMode === "notes" && typeof notesMod !== "undefined") notesMod.forceNotesFocus();
         else if (activeMode === "cheatsheet" && typeof cheatsheetMod !== "undefined") cheatsheetMod.forceSearchFocus();
+        else if (activeMode === "music" && typeof musicMod !== "undefined") musicMod.forceActiveFocus();
     }
 
     onActiveModeChanged: {
@@ -159,7 +207,6 @@ ShellRoot {
 
         Qt.callLater(() => {
             root.regainFocus();
-            if (activeMode !== "launcher") launcherMod.searchInput.text = "";
             if (activeMode !== "theme" && typeof themeMod !== "undefined") themeMod.resetSearch();
             if (activeMode !== "clipboard" && typeof clipMod !== "undefined") clipMod.searchInput.text = "";
             if (activeMode !== "shelf" && typeof shelfMod !== "undefined") shelfMod.searchInput.text = "";
@@ -176,7 +223,8 @@ ShellRoot {
         if (activeMode === "notes" && typeof notesMod !== "undefined" && notesMod.isWideMode) {
             return 820;
         }
-        return NotchConfig.modeDimensions[activeMode]?.width ?? NotchConfig.modeDimensions["idle"].width;
+        var dim = NotchConfig.modeDimensions[activeMode];
+        return dim && dim.width !== undefined ? dim.width : NotchConfig.modeDimensions["idle"].width;
     }
     
     readonly property int targetHeight: {
@@ -187,7 +235,8 @@ ShellRoot {
             return 500;
         }
         if (activeMode === "transition" || activeMode === "calendar" || activeMode === "powermenu" || activeMode === "battery" || activeMode === "notes" || activeMode === "cheatsheet") {
-            return NotchConfig.modeDimensions[activeMode]?.height ?? 220;
+            var mDim = NotchConfig.modeDimensions[activeMode];
+            return mDim && mDim.height !== undefined ? mDim.height : 220;
         }
         if (activeMode === "notifications") {
             return NotchConfig.calculateNotificationsHeight(globalNotifModel.count);
@@ -203,9 +252,6 @@ ShellRoot {
                 ? NotchConfig.calculateRecorderHeight(recMod.recordAudio, recMod.isMicDropdownOpen, recMod.isRecording) 
                 : 270;
         }
-        if (activeMode === "launcher") {
-            return NotchConfig.calculateLauncherHeight(launcherMod.calculatedCount, launcherMod.allApps.length);
-        }
         if (activeMode === "bluetooth") {
             return NotchConfig.calculateBluetoothHeight(btMod.filteredDevices, btMod.stateMap);
         }
@@ -217,13 +263,17 @@ ShellRoot {
                 ? NotchConfig.calculateUtilityHeight(utilMod.activeSection)
                 : 400;
         }
+        if (activeMode === "music") {
+            return typeof musicMod !== "undefined" ? musicMod.calculatedHeight : 335;
+        }
         if (activeMode === "idle") {
             return 32;
         }
         if (activeMode === "hover") {
             return 42;
         }
-        return NotchConfig.modeDimensions[activeMode]?.height ?? NotchConfig.modeDimensions["idle"].height;
+        var hDim = NotchConfig.modeDimensions[activeMode];
+        return hDim && hDim.height !== undefined ? hDim.height : NotchConfig.modeDimensions["idle"].height;
     } 
 
     readonly property int targetRadius: {
@@ -239,7 +289,11 @@ ShellRoot {
         if (activeMode === "utility") {
             return 28;
         }
-        return NotchConfig.modeDimensions[activeMode]?.radius ?? NotchConfig.modeDimensions["idle"].radius;
+        if (activeMode === "music") {
+            return 26;
+        }
+        var rDim = NotchConfig.modeDimensions[activeMode];
+        return rDim && rDim.radius !== undefined ? rDim.radius : NotchConfig.modeDimensions["idle"].radius;
     }
     readonly property int cornerCurveRadius: NotchConfig.cornerCurveRadius
 
@@ -325,6 +379,44 @@ while True:
         }
     }
 
+    Process {
+        id: modeListener
+        running: true
+        command: ["python3", "-u", "-c", `
+import os
+p = '/tmp/notch_mode'
+try:
+    if os.path.exists(p) and not os.path.islink(p):
+        os.remove(p)
+    os.mkfifo(p)
+except Exception:
+    pass
+while True:
+    try:
+        with open(p, 'r') as f:
+            for line in f:
+                l = line.strip()
+                if l: print(l, flush=True)
+    except Exception:
+        pass
+`]
+        stdout: SplitParser {
+            splitMarker: "\n"
+            onRead: (data) => {
+                var m = data.trim();
+                if (m === "idle") {
+                    root.collapseToIdle();
+                } else if (m.startsWith("utility")) {
+                    var parts = m.split(" ");
+                    root.openUtility(parts.length > 1 ? parts[1] : "", true);
+                } else if (m !== "") {
+                    root.openedViaShortcut = true;
+                    root.activeMode = m;
+                }
+            }
+        }
+    }
+
     Timer {
         id: workspaceSwitchSettleTimer
         interval: NotchConfig.timerWorkspacePeek
@@ -351,7 +443,14 @@ while True:
     }
 
     // Global Shortcuts
-    GlobalShortcut { name: "toggleNotchLauncher"; onPressed: root.switchMode("launcher", true) }
+    GlobalShortcut {
+        name: "toggleNotchLauncher"
+        onPressed: {
+            if (typeof spotlightWin !== "undefined" && spotlightWin) {
+                spotlightWin.toggle()
+            }
+        }
+    }
     GlobalShortcut { name: "toggleThemeNotch"; onPressed: root.switchMode("theme", true) }
     GlobalShortcut { name: "toggleWallpaperNotch"; onPressed: root.switchMode("wallpaper", true) }
     GlobalShortcut { name: "toggleTransitionNotch"; onPressed: root.switchMode("transition", true) }
@@ -374,8 +473,8 @@ while True:
     GlobalShortcut { 
         name: "toggleMusicInfoNotch"
         onPressed: {
-            if (typeof dashMod !== "undefined" && dashMod.isMediaPlaying && root.activeMode === "idle") {
-                dashMod.showMusicInfo = !dashMod.showMusicInfo;
+            if (root.activeMode === "music") {
+                root.collapseToIdle();
             } else {
                 root.switchMode("music", true);
             }
@@ -434,6 +533,40 @@ while True:
         }
     }
 
+    IpcHandler {
+        target: "notch"
+        function switchMode(mode: string): string {
+            root.switchMode(mode, true);
+            return "OK";
+        }
+        function collapse(): string {
+            root.collapseToIdle();
+            return "OK";
+        }
+        function toggleMusic(): string {
+            if (root.activeMode === "music") {
+                root.collapseToIdle();
+            } else {
+                root.switchMode("music", true);
+            }
+            return "OK";
+        }
+        function toggleMusicPanel(panelName: string): string {
+            if (root.activeMode !== "music") root.switchMode("music", true);
+            if (typeof musicMod !== "undefined") musicMod.togglePanel(panelName);
+            return "OK";
+        }
+        function toggleRecorder(): string {
+            root.switchMode("recorder", true);
+            return "OK";
+        }
+        function setScreenRecording(active: bool): string {
+            root.isScreenRecording = active;
+            if (typeof recMod !== "undefined") recMod.isRecording = active;
+            return "OK";
+        }
+    }
+
     // Native Hyprland focus grabber: captures outside clicks and closes the expanded notch
     HyprlandFocusGrab {
         id: focusGrab
@@ -453,11 +586,13 @@ while True:
         implicitHeight: 560
         exclusiveZone: NotchConfig.baseExclusiveZone
         color: "transparent"
-        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.layer: (root.activeMode !== "idle" && root.activeMode !== "hover") ? WlrLayer.Overlay : WlrLayer.Top
         WlrLayershell.namespace: "quickshell"
 
+        Item { id: emptyMaskItem; width: 0; height: 0 }
+
         mask: Region {
-            item: notchContainer
+            item: (root.isFullscreenActive && root.activeMode === "idle") ? emptyMaskItem : notchContainer
         }
 
         WlrLayershell.keyboardFocus: (root.activeMode !== "idle" && root.activeMode !== "hover" && root.activeMode !== "osd") 
@@ -470,6 +605,12 @@ while True:
             anchors.horizontalCenter: parent.horizontalCenter
             width: notch.width + (root.cornerCurveRadius * 2)
             height: notch.height
+
+            y: (root.isFullscreenActive && root.activeMode === "idle") ? -notch.height - 12 : 0
+            opacity: (root.isFullscreenActive && root.activeMode === "idle") ? 0.0 : 1.0
+            visible: opacity > 0.001
+            Behavior on y { NumberAnimation { duration: 250; easing.type: Easing.BezierSpline; easing.bezierCurve: [0.16, 1, 0.3, 1, 1, 1] } }
+            Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
 
             focus: root.activeMode !== "idle" && root.activeMode !== "hover"
             Keys.onPressed: (event) => {
@@ -604,10 +745,10 @@ while True:
                 Item {
                     id: modulesContainer
                     anchors.fill: parent
-                    anchors.leftMargin: 12
-                    anchors.rightMargin: 12
-                    anchors.topMargin: 12
-                    anchors.bottomMargin: 12
+                    anchors.leftMargin: root.activeMode === "music" ? 0 : 12
+                    anchors.rightMargin: root.activeMode === "music" ? 0 : 12
+                    anchors.topMargin: root.activeMode === "music" ? 0 : 12
+                    anchors.bottomMargin: root.activeMode === "music" ? 0 : 12
                     z: 2
 
                     opacity: (!root.isDashMode && root.activeMode !== "osd" && notch.height > 35) ? 1.0 : 0.0
@@ -622,29 +763,27 @@ while True:
                         currentIndex: {
                             var mode = root.isDashMode ? root.previousExpandedMode : root.activeMode;
                             switch(mode) {
-                                case "launcher":      return 0;
-                                case "theme":         return 1;
-                                case "wallpaper":     return 2;
-                                case "transition":    return 3;
-                                case "bluetooth":     return 4;
-                                case "wifi":          return 5;
-                                case "recorder":      return 6;
-                                case "battery":       return 7;
-                                case "powermenu":     return 8;
-                                case "calendar":      return 9;
-                                case "clipboard":     return 10;
-                                case "shelf":         return 11;
-								case "notifications": return 12;
-								case "switcher":      return 13;
-                                case "utility":       return 14;
-                                case "music":         return 15;
-                                case "notes":         return 16;
-                                case "cheatsheet":    return 17;
+                                case "theme":         return 0;
+                                case "wallpaper":     return 1;
+                                case "transition":    return 2;
+                                case "bluetooth":     return 3;
+                                case "wifi":          return 4;
+                                case "recorder":      return 5;
+                                case "battery":       return 6;
+                                case "powermenu":     return 7;
+                                case "calendar":      return 8;
+                                case "clipboard":     return 9;
+                                case "shelf":         return 10;
+								case "notifications": return 11;
+								case "switcher":      return 12;
+                                case "utility":       return 13;
+                                case "music":         return 14;
+                                case "notes":         return 15;
+                                case "cheatsheet":    return 16;
                                 default:              return 0;
                             }
                         }
 
-                        Launcher           { id: launcherMod }
                         ThemeSelector      { id: themeMod }
                         WallpaperSelector  { id: wallMod }
                         TransitionSelector { id: transMod }
@@ -720,5 +859,11 @@ while True:
                 }
             }
         }
+    }
+
+    // ── Iris Spotlight Search ─────────────────────────────────────────────────
+    // Standalone floating search window - triggered by Super+Space
+    IrisSpotlight {
+        id: spotlightWin
     }
 }

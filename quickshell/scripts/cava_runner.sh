@@ -1,35 +1,43 @@
 #!/usr/bin/env bash
-# Inir Cava runner: connects to default PipeWire sink monitor
-DEFAULT_SINK=$(pactl get-default-sink 2>/dev/null)
-if [ -n "$DEFAULT_SINK" ]; then
-    MONITOR="${DEFAULT_SINK}.monitor"
-else
-    MONITOR="auto"
-fi
+# Robust Cava runner for Quickshell
+# Supports variable bar counts and dynamic pipewire audio streams
 
-CONFIG_FILE="/tmp/cava_notch.conf"
-cat > "$CONFIG_FILE" << CAVA_EOF
+BARS="${1:-12}"
+CONF_FILE="/tmp/cava_${BARS}_$$.conf"
+
+cleanup() {
+    rm -f "$CONF_FILE" 2>/dev/null
+    exit 0
+}
+
+trap cleanup EXIT INT TERM
+
+cat > "$CONF_FILE" << CAVA_EOF
 [general]
-framerate = 60
-bars = 5
+framerate = 30
+bars = ${BARS}
 autosens = 1
 sensitivity = 100
+lower_cutoff_freq = 50
+higher_cutoff_freq = 12000
 
 [input]
 method = pipewire
-source = ${MONITOR}
+source = auto
 
 [output]
 method = raw
 raw_target = /dev/stdout
 data_format = ascii
-ascii_max_range = 100
 bar_delimiter = 59
 channels = mono
 mono_option = average
 
 [smoothing]
-noise_reduction = 20
+noise_reduction = 25
+integral = 80
+gravity = 90
+monstercat = 1.2
 CAVA_EOF
 
-exec cava -p "$CONFIG_FILE"
+exec cava -p "$CONF_FILE" < /dev/null

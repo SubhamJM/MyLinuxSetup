@@ -15,7 +15,7 @@ Item {
     Process {
         id: cavaProc
         running: root.active
-        command: [Quickshell.env("HOME") + "/.config/quickshell/my_own/scripts/cava_runner.sh"]
+        command: [Quickshell.env("HOME") + "/.config/quickshell/my_own/scripts/cava_runner.sh", root.bars.toString()]
         
         stdout: SplitParser {
             splitMarker: "\n"

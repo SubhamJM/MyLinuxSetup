@@ -50,21 +50,21 @@ QtObject {
         "osd":           { width: 280, height: 40,  radius: 16 },
         "wifi":          { width: 420, height: 380, radius: 26 }, 
         "bluetooth":     { width: 420, height: 380, radius: 26 },
-        "recorder":      { width: 420, height: 275, radius: 26 },
+        "recorder":      { width: 440, height: 280, radius: 26 },
         "battery":       { width: 540, height: 435, radius: 18 },
         "powermenu":     { width: 440, height: 100, radius: 14 },
         "calendar":      { width: 320, height: 280, radius: 12 },
         "clipboard":     { width: 460, height: 380, radius: 12 },
         "shelf":         { width: 460, height: 380, radius: 12 },
-        "utility":       { width: 460, height: 300, radius: 26 },
-        "music":         { width: 440, height: 210, radius: 14 },
+        "utility":       { width: 460, height: 358, radius: 26 },
+        "music":         { width: 600, height: 335, radius: 26 },
         "notes":         { width: 680, height: 480, radius: 14 },
         "cheatsheet":    { width: 800, height: 440, radius: 14 }
     })
 
     function calculateUtilityHeight(activeSection) {
-        if (activeSection === "audio") return 320;
-        return 300;
+        if (activeSection === "audio") return 400;
+        return 358;
     }
 
     // ==========================================
@@ -95,10 +95,9 @@ QtObject {
     }
 
     function calculateRecorderHeight(recordAudio, isDropdownOpen, isRecording) {
-        if (isRecording) return 210;
-        if (recordAudio && isDropdownOpen) return 360;
-        if (recordAudio) return 310;
-        return 270;
+        if (isRecording) return 195;
+        if (recordAudio && isDropdownOpen) return 380;
+        return 280;
     }
 
     function calculateBluetoothHeight(devices, stateMap) {

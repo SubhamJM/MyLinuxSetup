@@ -106,21 +106,6 @@ Row {
         anchors.baseline: hoursText.baseline
     }
 
-    Rectangle {
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.leftMargin: 6
-        width: 7; height: 7; radius: 3.5
-        color: "#ff6961"
-        visible: root.isScreenRecording
-
-        SequentialAnimation on opacity {
-            running: root.isScreenRecording
-            loops: Animation.Infinite
-            NumberAnimation { from: 1.0; to: 0.2; duration: 800; easing.type: Easing.InOutQuad }
-            NumberAnimation { from: 0.2; to: 1.0; duration: 800; easing.type: Easing.InOutQuad }
-        }
-    }
-
     Accessible.role: Accessible.StaticText
     Accessible.name: root.text
 }

@@ -17,8 +17,8 @@ Item {
     readonly property bool isReady: battery != null && (battery.percentage !== undefined && battery.percentage > 0)
     readonly property real percentage: isReady ? battery.percentage : 1.0
     readonly property int batteryLevel: Math.round(percentage * 100)
-    readonly property bool isCharging: battery?.state === UPowerDevice.Charging
-    readonly property bool isFullyCharged: battery?.state === UPowerDevice.FullyCharged
+    readonly property bool isCharging: battery && battery.state === UPowerDevice.Charging
+    readonly property bool isFullyCharged: battery && battery.state === UPowerDevice.FullyCharged
     readonly property bool isPluggedIn: isCharging || isFullyCharged
     readonly property bool isWarning: isReady && batteryLevel <= 25 && batteryLevel > 15
     readonly property bool isLow: isReady && batteryLevel <= 15
