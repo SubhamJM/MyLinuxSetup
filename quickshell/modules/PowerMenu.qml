@@ -123,10 +123,9 @@ FocusScope {
                         height: 52
                         radius: 26
                         anchors.horizontalCenter: parent.horizontalCenter
-                        color: Qt.rgba(
-                            btnRoot.activeColor.r, btnRoot.activeColor.g, btnRoot.activeColor.b,
-                            holdMouse.pressed ? 0.36 : ((holdMouse.containsMouse || btnRoot.isFocused) ? 0.24 : 0.14)
-                        )
+                        color: (holdMouse.pressed || holdMouse.containsMouse || btnRoot.isFocused)
+                            ? Qt.rgba(btnRoot.activeColor.r, btnRoot.activeColor.g, btnRoot.activeColor.b, holdMouse.pressed ? 0.32 : 0.20)
+                            : "#121216"
                         scale: holdMouse.pressed ? 0.92 : (btnRoot.isFocused ? 1.05 : (holdMouse.containsMouse ? 1.03 : 1.0))
 
                         Behavior on color { ColorAnimation { duration: 180 } }

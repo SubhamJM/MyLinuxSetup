@@ -30,15 +30,15 @@ ColumnLayout {
     property string hotspotPass: "000000001"
     property bool hotspotShowPassword: false
 
-    // Material 3 Expressive (Android 17) Tokens — solid tonal surfaces, no borders
+    // Material 3 Expressive Neutral Deep Black Tokens
     readonly property color colSurface: "#000000"
-    readonly property color colCard: Theme.colors.card_bg ?? "#181c24"
-    readonly property color colCardHover: Theme.colors.hover_bg ?? "#222834"
-    readonly property color colCardActive: Qt.alpha(wifiMaster.colAccent, 0.20)
-    readonly property color colChipBg: Theme.colors.hover_bg ?? "#222834"
-    readonly property color colText: Theme.colors.text_primary ?? "#eceff4"
-    readonly property color colSubtext: Theme.colors.text_secondary ?? "#d8dee9"
-    readonly property color colMuted: Theme.colors.text_muted ?? "#81a1c1"
+    readonly property color colCard: "#0e0e12"
+    readonly property color colCardHover: "#18181c"
+    readonly property color colCardActive: "#141418"
+    readonly property color colChipBg: "#141418"
+    readonly property color colText: "#f8fafc"
+    readonly property color colSubtext: "#94a3b8"
+    readonly property color colMuted: "#64748b"
     readonly property color colAccent: Theme.colors.accent ?? "#88c0d0"
     readonly property color colGreen: ({ nord: "#a3be8c", dracula: "#50fa7b", catppuccin: "#a6e3a1", everforest: "#a7c080", "rose-pine": "#9ccfd8" })[Theme.currentThemeName] ?? "#30d158"
     readonly property color colRed: ({ nord: "#bf616a", dracula: "#ff5555", catppuccin: "#f38ba8", everforest: "#e67e80", "rose-pine": "#eb6f92" })[Theme.currentThemeName] ?? "#ff453a"
@@ -769,8 +769,7 @@ ColumnLayout {
                 width: ListView.view.width
                 implicitHeight: networkCol.implicitHeight + 22
                 radius: inUse ? 24 : 20
-                color: inUse ? wifiMaster.colCardActive
-                       : (rowPressArea.containsMouse ? wifiMaster.colCardHover : wifiMaster.colCard)
+                color: rowPressArea.containsMouse ? wifiMaster.colCardHover : wifiMaster.colCard
 
                 Behavior on color { ColorAnimation { duration: 150 } }
                 Behavior on radius { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }

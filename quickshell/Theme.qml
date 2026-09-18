@@ -6,15 +6,19 @@ import Quickshell.Io
 QtObject {
     id: theme
 
+    // Neutral OLED Deep Black Palette (Pure dark neutrals with subtle theme accent)
     property var colors: ({
-        "bg": "#16161e",
-        "card_bg": "#1f2335",
-        "hover_bg": "#24283b",
-        "border": "#16161e",
-        "border_hover": "#7aa2f7",
-        "text_primary": "#c0caf5",
-        "text_secondary": "#565f89",
-        "accent": "#7aa2f7"
+        "bg": "#000000",
+        "card_bg": "#0e0e12",
+        "hover_bg": "#18181c",
+        "border": "#1a1a20",
+        "border_hover": "#26262e",
+        "text_primary": "#f8fafc",
+        "text_secondary": "#94a3b8",
+        "text_muted": "#64748b",
+        "accent": "#7aa2f7",
+        "error": "#f87171",
+        "warning": "#fbbf24"
     })
 
     property string currentThemeName: "default"
@@ -50,7 +54,21 @@ QtObject {
             onStreamFinished: {
                 if (!this.text || this.text.trim() === "") return;
                 try {
-                    theme.colors = JSON.parse(this.text);
+                    var parsed = JSON.parse(this.text);
+                    var acc = parsed.accent || "#7aa2f7";
+                    theme.colors = {
+                        "bg": "#000000",
+                        "card_bg": "#0e0e12",
+                        "hover_bg": "#18181c",
+                        "border": "#1a1a20",
+                        "border_hover": "#26262e",
+                        "text_primary": "#f8fafc",
+                        "text_secondary": "#94a3b8",
+                        "text_muted": "#64748b",
+                        "accent": acc,
+                        "error": parsed.error || "#f87171",
+                        "warning": parsed.warning || "#fbbf24"
+                    };
                     theme.themeReloaded();
                 } catch(e) {
                     console.warn("[Quickshell Theme] Failed to parse JSON:", e);

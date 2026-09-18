@@ -15,13 +15,13 @@ Item {
     // MATERIAL YOU / M3 COLOR TOKENS
     // ========================================================
     readonly property color accentColor: Theme.colors.accent ?? "#a7c080"
-    readonly property color cardBg: Theme.colors.card_bg ?? "#1a211f"
-    readonly property color hoverBg: Theme.colors.hover_bg ?? "#242f2b"
-    readonly property color borderColor: Theme.colors.border ?? "#313f39"
-    readonly property color borderHover: Theme.colors.border_hover ?? accentColor
-    readonly property color textPrimary: Theme.colors.text_primary ?? "#d3c6aa"
-    readonly property color textSecondary: Theme.colors.text_secondary ?? "#9da9a0"
-    readonly property color bgBase: Theme.colors.bg ?? "#121716"
+    readonly property color cardBg: "#0e0e12"
+    readonly property color hoverBg: "#18181c"
+    readonly property color borderColor: Qt.rgba(255, 255, 255, 0.05)
+    readonly property color borderHover: Qt.rgba(255, 255, 255, 0.10)
+    readonly property color textPrimary: "#f8fafc"
+    readonly property color textSecondary: "#94a3b8"
+    readonly property color bgBase: "#000000"
 
     readonly property color chargingColor: "#8FDEB4"
     readonly property color warningColor: "#e0af68"
@@ -198,14 +198,9 @@ Item {
         radius: 16
 
         // Smooth background tone: soft tinted container when active, dark surface when inactive
-        color: active 
-            ? Qt.rgba(activeColor.r, activeColor.g, activeColor.b, 0.16)
-            : (tileMouse.containsMouse ? batteryModule.hoverBg : batteryModule.cardBg)
-
+        color: tileMouse.containsMouse ? batteryModule.hoverBg : batteryModule.cardBg
         border.width: 1
-        border.color: active
-            ? Qt.rgba(activeColor.r, activeColor.g, activeColor.b, 0.35)
-            : (tileMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.05))
+        border.color: tileMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(1, 1, 1, 0.05)
 
         scale: tileMouse.pressed ? 0.96 : (tileMouse.containsMouse ? 1.01 : 1.0)
         Behavior on scale { NumberAnimation { duration: 110; easing.type: Easing.OutCubic } }
@@ -471,13 +466,11 @@ Item {
 
                     readonly property bool isSelected: batteryModule.activeProfile === modelData.id
 
-                    color: isSelected 
-                        ? Qt.rgba(batteryModule.accentColor.r, batteryModule.accentColor.g, batteryModule.accentColor.b, 0.18)
-                        : (profMouse.containsMouse ? batteryModule.hoverBg : batteryModule.cardBg)
+                    color: profMouse.containsMouse ? batteryModule.hoverBg : batteryModule.cardBg
 
                     border.width: 1
                     border.color: isSelected
-                        ? Qt.rgba(batteryModule.accentColor.r, batteryModule.accentColor.g, batteryModule.accentColor.b, 0.35)
+                        ? Qt.rgba(batteryModule.accentColor.r, batteryModule.accentColor.g, batteryModule.accentColor.b, 0.45)
                         : (profMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.05))
 
                     scale: profMouse.pressed ? 0.96 : (profMouse.containsMouse ? 1.01 : 1.0)

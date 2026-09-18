@@ -28,12 +28,12 @@ Item {
     property bool isDraggingBrightness: false
 
     readonly property color colBg: "#000000"
-    readonly property color colCard: Theme.colors.card_bg ?? "#161924"
-    readonly property color colCardHover: Theme.colors.hover_bg ?? "#202534"
+    readonly property color colCard: "#0e0e12"
+    readonly property color colCardHover: "#18181c"
     readonly property color colAccent: Theme.colors.accent ?? "#7aa2f7"
-    readonly property color colText: Theme.colors.text_primary ?? "#eceff4"
-    readonly property color colSubtext: Theme.colors.text_secondary ?? "#d8dee9"
-    readonly property color colMuted: Theme.colors.text_muted ?? "#81a1c1"
+    readonly property color colText: "#f8fafc"
+    readonly property color colSubtext: "#94a3b8"
+    readonly property color colMuted: "#64748b"
 
     // Reactive Connectivity Data
     property bool wifiEnabled: true
@@ -312,7 +312,7 @@ Item {
         implicitHeight: 44
         radius: 22
 
-        color: pill.isActive ? Qt.rgba(pill.activeColor.r, pill.activeColor.g, pill.activeColor.b, 0.22) : (discMouse.containsMouse || pillBodyMouse.containsMouse ? utilModule.colCardHover : utilModule.colCard)
+        color: (discMouse.containsMouse || pillBodyMouse.containsMouse) ? utilModule.colCardHover : utilModule.colCard
         border.width: 1
         border.color: Qt.rgba(255, 255, 255, 0.05)
 
@@ -331,7 +331,7 @@ Item {
                 width: 36
                 height: 36
                 radius: 18
-                color: pill.isActive ? pill.activeColor : (discMouse.containsMouse ? utilModule.colCardHover : "#202534")
+                color: pill.isActive ? pill.activeColor : (discMouse.containsMouse ? "#222228" : "#18181e")
 
                 scale: discMouse.pressed ? 0.90 : 1.0
                 Behavior on scale { NumberAnimation { duration: 90 } }
@@ -342,7 +342,7 @@ Item {
                     text: pill.glyph
                     fill: pill.isActive ? 1 : 0
                     iconSize: 19
-                    color: pill.isActive ? "#0b0f19" : utilModule.colText
+                    color: pill.isActive ? "#000000" : utilModule.colText
                     Behavior on color { ColorAnimation { duration: 100 } }
                 }
 
@@ -598,7 +598,7 @@ Item {
         implicitHeight: 36
         radius: 12
 
-        color: chip.lit ? Qt.rgba(chip.tint.r, chip.tint.g, chip.tint.b, 0.22) : (chipMouse.containsMouse ? utilModule.colCardHover : utilModule.colCard)
+        color: chipMouse.containsMouse ? utilModule.colCardHover : utilModule.colCard
         border.width: 1
         border.color: Qt.rgba(255, 255, 255, 0.05)
 
@@ -628,8 +628,8 @@ Item {
         id: hbtn
         property string glyph: ""
         property color iconColor: "#e2e8f0"
-        property color customBg: "#181b28"
-        property color hoverBg: "#252b3d"
+        property color customBg: "#121216"
+        property color hoverBg: "#1c1c22"
         signal clicked()
 
         width: 28
@@ -676,7 +676,7 @@ Item {
             // Tactile Back / Exit Button
             Rectangle {
                 width: 26; height: 26; radius: 8
-                color: headerBackMouse.containsMouse ? "#252b3d" : "#181b28"
+                color: headerBackMouse.containsMouse ? "#1c1c22" : "#121216"
                 border.width: 1
                 border.color: headerBackMouse.containsMouse ? Qt.rgba(255, 255, 255, 0.1) : Qt.rgba(255, 255, 255, 0.04)
                 scale: headerBackMouse.pressed ? 0.90 : 1.0
@@ -861,8 +861,8 @@ Item {
                 MaterialCircleBtn {
                     glyph: "power_settings_new"
                     iconColor: "#ff5555"
-                    customBg: Qt.rgba(255, 85, 85, 0.12)
-                    hoverBg: Qt.rgba(255, 85, 85, 0.25)
+                    customBg: utilModule.colCard
+                    hoverBg: "#221818"
                     onClicked: root.switchMode("powermenu", false)
                 }
             }
@@ -1000,9 +1000,9 @@ Item {
                     Layout.fillWidth: true
                     height: 42
                     radius: 14
-                    color: modelData.isDefault ? Qt.rgba(utilModule.colAccent.r, utilModule.colAccent.g, utilModule.colAccent.b, 0.20) : (sinkMouse.containsMouse ? utilModule.colCardHover : utilModule.colCard)
+                    color: sinkMouse.containsMouse ? utilModule.colCardHover : utilModule.colCard
                     border.width: 1
-                    border.color: Qt.rgba(255, 255, 255, 0.06)
+                    border.color: Qt.rgba(255, 255, 255, 0.05)
 
                     RowLayout {
                         anchors.fill: parent
@@ -1059,9 +1059,9 @@ Item {
                     Layout.fillWidth: true
                     height: 42
                     radius: 14
-                    color: modelData.isDefault ? Qt.rgba(utilModule.colAccent.r, utilModule.colAccent.g, utilModule.colAccent.b, 0.20) : (sourceMouse.containsMouse ? utilModule.colCardHover : utilModule.colCard)
+                    color: sourceMouse.containsMouse ? utilModule.colCardHover : utilModule.colCard
                     border.width: 1
-                    border.color: Qt.rgba(255, 255, 255, 0.06)
+                    border.color: Qt.rgba(255, 255, 255, 0.05)
 
                     RowLayout {
                         anchors.fill: parent

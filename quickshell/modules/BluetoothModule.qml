@@ -10,15 +10,15 @@ ColumnLayout {
     spacing: 8
     Layout.fillWidth: true
 
-    // Material UI Solid Polygon Tokens (Zero borders, pure tonal surfaces)
+    // Material UI Neutral Deep Black Tokens
     readonly property color colSurface: "#000000"
-    readonly property color colCard: Theme.colors.card_bg ?? "#181c24"
-    readonly property color colCardHover: Theme.colors.hover_bg ?? "#222834"
-    readonly property color colCardActive: Qt.alpha(btModule.colAccent, 0.16)
-    readonly property color colChipBg: Theme.colors.hover_bg ?? "#222834"
-    readonly property color colText: Theme.colors.text_primary ?? "#eceff4"
-    readonly property color colSubtext: Theme.colors.text_secondary ?? "#d8dee9"
-    readonly property color colMuted: Theme.colors.text_muted ?? "#81a1c1"
+    readonly property color colCard: "#0e0e12"
+    readonly property color colCardHover: "#18181c"
+    readonly property color colCardActive: "#141418"
+    readonly property color colChipBg: "#141418"
+    readonly property color colText: "#f8fafc"
+    readonly property color colSubtext: "#94a3b8"
+    readonly property color colMuted: "#64748b"
     readonly property color colAccent: Theme.colors.accent ?? "#88c0d0"
     readonly property color colGreen: ({ nord: "#a3be8c", dracula: "#50fa7b", catppuccin: "#a6e3a1", everforest: "#a7c080", "rose-pine": "#9ccfd8" })[Theme.currentThemeName] ?? "#30d158"
     readonly property color colRed: ({ nord: "#bf616a", dracula: "#ff5555", catppuccin: "#f38ba8", everforest: "#e67e80", "rose-pine": "#eb6f92" })[Theme.currentThemeName] ?? "#ff453a"
@@ -628,7 +628,7 @@ ColumnLayout {
             // Dynamic height (50px collapsed, 92px expanded with drawer)
             height: isExpanded ? 92 : 50
             radius: 12
-            color: modelData.connected ? btModule.colCardActive : (cardHover.containsMouse ? btModule.colCardHover : btModule.colCard)
+            color: cardHover.containsMouse ? btModule.colCardHover : btModule.colCard
             border.width: 0
             clip: true
 
